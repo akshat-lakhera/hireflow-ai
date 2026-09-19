@@ -1,5 +1,4 @@
 import { RoleSetup, EvidenceItem, InterviewKitQuestion, RiskFlag } from '../types';
-import { VectorEmbeddingService } from './vectorEmbeddingService';
 
 export interface AiConfig {
   provider: 'groq' | 'gemini' | 'openai';
@@ -129,12 +128,19 @@ export class AiService {
       sessionStorage.removeItem(SESSION_STORAGE_KEY);
       localStorage.removeItem(LEGACY_STORAGE_KEY);
     }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('hireflow-ai-config-updated'));
+    }
   }
 
   public static clearConfig(): void {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(LEGACY_STORAGE_KEY);
     sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('hireflow-ai-config-updated'));
+    }
   }
 
   public static isConfigured(): boolean {
@@ -378,15 +384,18 @@ JSON Structure required:
   ): Promise<string> {
     const config = this.getConfig();
 
-    // 1. If configured with live LLM (Groq, Gemini, OpenAI), run true RAG
-    if (this.isConfigured()) {
-      try {
-        const candidateSummaries = candidates.map((c, i) => {
-          const projs = (c.projects || []).map((p: any) => `${p.name}: ${p.description}`).join('; ');
-          const exps = (c.experiences || []).map((e: any) => `${e.role} at ${e.company} (${e.duration})`).join('; ');
-          const evidence = (c.evidenceMap || []).map((ev: any) => `${ev.requirement} [${ev.status}, ${ev.confidence}]: "${ev.snippet}"`).join('; ');
-          const risks = (c.riskFlags || []).map((r: any) => `${r.label} (${r.details})`).join('; ');
-          return `[Candidate ${i + 1}]
+    // Enforce API key requirement: Zero dummy or hardcoded responses
+    if (!this.isConfigured()) {
+      return `### ⚠️ AI API Key Required\n\nNo AI API key is configured. HireFlow Copilot requires an active LLM provider (**Groq**, **Google Gemini**, or **OpenAI**) to converse and analyze candidate dossiers.\n\nAll hardcoded and dummy responses have been permanently removed. Please configure your free **Groq** (\`llama-3.3-70b\`) or **Google Gemini** API key in **AI Settings** (top header) to activate the Copilot.`;
+    }
+
+    try {
+      const candidateSummaries = candidates.map((c, i) => {
+        const projs = (c.projects || []).map((p: any) => `${p.name}: ${p.description}`).join('; ');
+        const exps = (c.experiences || []).map((e: any) => `${e.role} at ${e.company} (${e.duration})`).join('; ');
+        const evidence = (c.evidenceMap || []).map((ev: any) => `${ev.requirement} [${ev.status}, ${ev.confidence}]: "${ev.snippet}"`).join('; ');
+        const risks = (c.riskFlags || []).map((r: any) => `${r.label} (${r.details})`).join('; ');
+        return `[Candidate ${i + 1}]
 Name: ${c.name}
 Role: ${c.currentRole}
 Score: ${c.matchScore}% (${c.fitBadge})
@@ -397,9 +406,9 @@ Projects: ${projs || 'None documented'}
 Work History: ${exps || 'None documented'}
 Verified Evidence: ${evidence || 'None'}
 Risk Flags: ${risks || 'None'}`;
-        }).join('\n\n');
+      }).join('\n\n');
 
-        const systemPrompt = `You are HireFlow Copilot — an expert AI Recruiting Intelligence Agent embedded inside the recruiter's workspace.
+      const systemPrompt = `You are HireFlow Copilot — an expert AI Recruiting Intelligence Agent embedded inside the recruiter's workspace.
 You have real-time grounded access to the candidate pipeline database and the active role requirements.
 
 Current Role Blueprint:
@@ -419,183 +428,95 @@ Instructions:
 5. If the user asks about an unknown candidate or skill not on record, state so factually.
 6. Format responses with clean markdown (bullet points, bold text). Keep responses concise, scannable, and professional.`;
 
-        if (config.provider === 'groq') {
-          const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${config.apiKey.trim()}`
-            },
-            body: JSON.stringify({
-              model: config.model || 'llama-3.3-70b-versatile',
-              messages: [
-                { role: 'system', content: systemPrompt },
-                ...history.slice(-4),
-                { role: 'user', content: query }
-              ],
-              temperature: 0.2,
-              max_tokens: 800
-            })
-          });
+      if (config.provider === 'groq') {
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${config.apiKey.trim()}`
+          },
+          body: JSON.stringify({
+            model: config.model || 'llama-3.3-70b-versatile',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              ...history.slice(-4),
+              { role: 'user', content: query }
+            ],
+            temperature: 0.2,
+            max_tokens: 800
+          })
+        });
 
-          if (res.ok) {
-            const data = await res.json();
-            const text = data.choices?.[0]?.message?.content;
-            if (text) return text;
-          }
-        } else if (config.provider === 'gemini') {
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/${config.model || 'gemini-1.5-flash'}:generateContent?key=${config.apiKey.trim()}`;
-          const res = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [
-                {
-                  parts: [
-                    { text: `${systemPrompt}\n\nUser Query: ${query}` }
-                  ]
-                }
-              ]
-            })
-          });
-
-          if (res.ok) {
-            const data = await res.json();
-            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (text) return text;
-          }
+        if (res.ok) {
+          const data = await res.json();
+          const text = data.choices?.[0]?.message?.content;
+          if (text) return text;
         } else {
-          // OpenAI
-          const res = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${config.apiKey.trim()}`
-            },
-            body: JSON.stringify({
-              model: config.model || 'gpt-4o-mini',
-              messages: [
-                { role: 'system', content: systemPrompt },
-                ...history.slice(-4),
-                { role: 'user', content: query }
-              ],
-              temperature: 0.2,
-              max_tokens: 800
-            })
-          });
-
-          if (res.ok) {
-            const data = await res.json();
-            const text = data.choices?.[0]?.message?.content;
-            if (text) return text;
-          }
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error?.message || `HTTP ${res.status}: Groq API error`);
         }
-      } catch (err: any) {
-        console.warn('Live LLM agent error, falling back to local deterministic RAG engine:', err);
+      } else if (config.provider === 'gemini') {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${config.model || 'gemini-1.5-flash'}:generateContent?key=${config.apiKey.trim()}`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  { text: `${systemPrompt}\n\nUser Query: ${query}` }
+                ]
+              }
+            ]
+          })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text) return text;
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error?.message || `HTTP ${res.status}: Gemini API error`);
+        }
+      } else {
+        // OpenAI
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${config.apiKey.trim()}`
+          },
+          body: JSON.stringify({
+            model: config.model || 'gpt-4o-mini',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              ...history.slice(-4),
+              { role: 'user', content: query }
+            ],
+            temperature: 0.2,
+            max_tokens: 800
+          })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const text = data.choices?.[0]?.message?.content;
+          if (text) return text;
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error?.message || `HTTP ${res.status}: OpenAI API error`);
+        }
       }
+
+      return `### ⚠️ No Response\n\nThe AI model did not return an answer. Please try rephrasing your query or check your API key in **AI Settings**.`;
+    } catch (err: any) {
+      console.error('Live LLM agent error:', err);
+      return `### ⚠️ AI Service Error\n\nFailed to connect to **${config.provider.toUpperCase()}** (${config.model}): ${err.message || 'Network request failed'}.\n\nPlease check your API key in **AI Settings** and try again.`;
     }
-
-    // 2. Intelligent Local Deterministic Fallback RAG Engine
-    return this.localRagFallback(query, candidates, role);
-  }
-
-  private static localRagFallback(query: string, candidates: any[], role: RoleSetup): string {
-    const q = query.toLowerCase().trim();
-
-    if (candidates.length === 0) {
-      return `There are currently no candidates in the pipeline for **${role.title}**. Please upload a resume PDF or load a demo case to begin querying candidate data.`;
-    }
-
-    // Always sort candidates strictly by matchScore descending
-    const sorted = [...candidates].sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
-    const topCandidate = sorted[0];
-    const lowestCandidate = sorted[sorted.length - 1];
-
-    // Intent 1: List candidates
-    if (q.includes('list') || q.includes('who applied') || q.includes('all candidate') || q.includes('name of candidate')) {
-      const list = sorted.map(c => 
-        `• **${c.name}** — ${c.currentRole} | Match Score: **${c.matchScore}%** (${c.fitBadge}) | Status: *${c.reviewStatus}*`
-      ).join('\n');
-      return `### Candidates in Active Pipeline (${candidates.length})\n\n${list}\n\n*Click on any candidate card on the left to inspect their full executive dossier.*`;
-    }
-
-    // Intent 2: Eligibility
-    if (q.includes('eligible') || q.includes('qualified') || q.includes('pass') || q.includes('interview ready')) {
-      const eligible = sorted.filter(c => (c.matchScore || 0) >= 75 || c.reviewStatus === 'Interview Ready');
-      if (eligible.length === 0) {
-        return `No candidates currently meet the high-match eligibility threshold (≥75%) for **${role.title}**. The highest scoring candidate is **${topCandidate.name}** at ${topCandidate.matchScore}% (${topCandidate.fitBadge}).`;
-      }
-      const breakdown = eligible.map(c => 
-        `• **${c.name}** (**${c.matchScore}%** — ${c.fitBadge})\n  - Role: ${c.currentRole}\n  - Verified Skills: ${c.matchedSkills.join(', ')}\n  - Status: *${c.reviewStatus}*`
-      ).join('\n\n');
-      return `### Eligible Candidates for ${role.title} (${eligible.length}/${candidates.length})\n\n${breakdown}\n\n*These candidates meet or exceed the eligibility threshold for this role.*`;
-    }
-
-    // Intent 3: Risk Flags & Gaps
-    if (q.includes('risk') || q.includes('gap') || q.includes('concern') || q.includes('missing')) {
-      const withRisks = sorted.filter(c => c.riskFlags && c.riskFlags.length > 0);
-      if (withRisks.length === 0) {
-        return `No major risk flags have been detected across the active pipeline.`;
-      }
-      const riskSummary = withRisks.map(c => 
-        `• **${c.name}** (${c.matchScore}% - ${c.fitBadge}):\n  - ${c.riskFlags.map((r: any) => `${r.label}: ${r.details}`).join('\n  - ')}`
-      ).join('\n\n');
-      return `### Identified Qualification Gaps & Risk Flags\n\n${riskSummary}`;
-    }
-
-    // Intent 4: Specific candidate lookup
-    const mentioned = sorted.find(c => q.includes(c.name.toLowerCase()) || q.includes(c.name.split(' ')[0].toLowerCase()));
-    if (mentioned) {
-      const projs = (mentioned.projects || []).map((p: any) => `**${p.name}** (${p.technologies || 'N/A'}): ${p.description}`).join('\n  - ');
-      return `### Dossier Summary: ${mentioned.name}\n\n` +
-        `• **Role**: ${mentioned.currentRole}\n` +
-        `• **Match Score**: **${mentioned.matchScore}%** (${mentioned.fitBadge})\n` +
-        `• **Status**: ${mentioned.reviewStatus}\n` +
-        `• **Contact**: ${mentioned.email || 'N/A'} | ${mentioned.phone || 'N/A'} | ${mentioned.location}\n` +
-        `• **Key Skills**: ${mentioned.matchedSkills.join(', ')}\n` +
-        `• **Missing Criteria**: ${mentioned.missingSkills.join(', ') || 'None'}\n` +
-        `• **Documented Projects**:\n  - ${projs || 'No projects extracted.'}`;
-    }
-
-    // Intent 5: 384-Dimensional Semantic Vector Cosine Similarity Search
-    try {
-      const queryVec = VectorEmbeddingService.generateEmbedding(query);
-      const scored = sorted.map(c => {
-        const cVec = (c.embedding && Array.isArray(c.embedding) && c.embedding.length === 384)
-          ? c.embedding
-          : VectorEmbeddingService.generateEmbedding(`${c.name} ${c.currentRole} ${c.matchedSkills.join(' ')} ${c.resumeSummary}`);
-        const similarity = VectorEmbeddingService.cosineSimilarity(queryVec, cVec);
-        return { candidate: c, similarity };
-      }).sort((a, b) => b.similarity - a.similarity);
-
-      const topMatches = scored.filter(s => s.similarity >= 0.18);
-      if (topMatches.length > 0) {
-        const results = topMatches.map(m => 
-          `• **${m.candidate.name}** (${m.candidate.currentRole}) — Semantic Relevance: **${Math.round(m.similarity * 100)}%**\n  - Match Score: ${m.candidate.matchScore}% (${m.candidate.fitBadge})\n  - Verified Skills: ${m.candidate.matchedSkills.join(', ')}\n  - Documented Evidence: ${m.candidate.proofLine || m.candidate.resumeSummary.slice(0, 140) + '...'}`
-        ).join('\n\n');
-        return `### 384-Dimensional Vector Similarity Matches\n\nRanked by cosine similarity against local candidate dossiers:\n\n${results}\n\n*Click on any candidate card to review their complete evidence map.*`;
-      }
-    } catch (vErr) {
-      console.warn('Local vector search fallback notice:', vErr);
-    }
-
-    // Intent 6: Generic pipeline summary
-    const highRiskCandidates = sorted.filter(c => (c.matchScore || 0) < 60);
-
-    return `### Pipeline Intelligence for ${role.title}\n\n` +
-      `We have **${candidates.length} candidate${candidates.length === 1 ? '' : 's'}** evaluated against your role blueprint:\n\n` +
-      `• **Top Fit**: **${topCandidate.name}** (**${topCandidate.matchScore}%** — ${topCandidate.fitBadge})\n` +
-      (highRiskCandidates.length > 0 
-        ? `• **High Risk / Under-qualified**: ${highRiskCandidates.map(c => `**${c.name}** (${c.matchScore}%)`).join(', ')}\n` 
-        : '') +
-      `• **Must-Have Requirements**: ${role.mustHaveSkills.join(', ')}\n\n` +
-      `You can ask me questions like:\n` +
-      `- *"List all candidates who applied"*\n` +
-      `- *"Which candidates are eligible for an interview?"*\n` +
-      `- *"Who has project experience in consensus or Kafka?"*\n` +
-      `- *"What are the risks with ${lowestCandidate.name}?"*`;
   }
 }
+
 
 
 

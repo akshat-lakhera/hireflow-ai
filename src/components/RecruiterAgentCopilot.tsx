@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { CandidateCaseFile, RoleSetup } from '../types';
-import { AiService } from '../services/aiApi';
+import { AiService, AiConfig } from '../services/aiApi';
 import { AudioService } from '../services/audioService';
 import { 
   Bot, 
@@ -30,6 +30,7 @@ interface RecruiterAgentCopilotProps {
   candidates: CandidateCaseFile[];
   role: RoleSetup;
   onSelectCandidate: (candidate: CandidateCaseFile) => void;
+  onOpenAiSettings?: () => void;
 }
 
 export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
@@ -37,24 +38,45 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
   onClose,
   candidates,
   role,
-  onSelectCandidate
+  onSelectCandidate,
+  onOpenAiSettings
 }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>(() => [
-    {
-      id: 'init-1',
-      sender: 'agent',
-      text: `Hello! I am your **HireFlow Copilot**. I have full context on the **${role.title}** role and all **${candidates.length} candidate${candidates.length === 1 ? '' : 's'}** on record.\n\nYou can ask me questions like:\n• *"List all candidates who applied"*\n• *"Which candidates are eligible for an interview?"*\n• *"Compare candidate skills and projects"*\n• *"What are the biggest risk flags?"*`,
-      timestamp: 'Just now'
-    }
-  ]);
+  const [aiConfig, setAiConfig] = useState<AiConfig>(() => AiService.getConfig());
+  const [isAiConfigured, setIsAiConfigured] = useState<boolean>(() => AiService.isConfigured());
+
+  useEffect(() => {
+    const syncConfig = () => {
+      setAiConfig(AiService.getConfig());
+      setIsAiConfigured(AiService.isConfigured());
+    };
+
+    window.addEventListener('hireflow-ai-config-updated', syncConfig);
+    window.addEventListener('storage', syncConfig);
+    return () => {
+      window.removeEventListener('hireflow-ai-config-updated', syncConfig);
+      window.removeEventListener('storage', syncConfig);
+    };
+  }, []);
+
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    const configured = AiService.isConfigured();
+    const cfg = AiService.getConfig();
+    return [
+      {
+        id: 'init-1',
+        sender: 'agent',
+        text: configured
+          ? `Hello! I am your **HireFlow Copilot** powered by **${cfg.provider.toUpperCase()} (${cfg.model})**. I have real-time grounded context on the **${role.title}** role and all **${candidates.length} candidate${candidates.length === 1 ? '' : 's'}** in the pipeline. Ask me anything about candidate qualifications, verification gaps, or eligibility.`
+          : `### ⚠️ AI API Key Required\n\nWelcome to **HireFlow Copilot**.\n\nCurrently, **no AI API key is configured**. HireFlow operates with authentic LLM evaluation and does **not** provide fake, mock, or hardcoded dummy answers.\n\nTo ask questions, evaluate qualifications, compare applicants, or generate interview questions, please add your free **Groq** (\`llama-3.3-70b\`) or **Google Gemini** API key in **AI Settings**.`,
+        timestamp: 'Just now'
+      }
+    ];
+  });
 
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
-
-  const aiConfig = AiService.getConfig();
-  const isAiConfigured = AiService.isConfigured();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -62,9 +84,11 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
 
   useEffect(() => {
     if (isOpen) {
+      setAiConfig(AiService.getConfig());
+      setIsAiConfigured(AiService.isConfigured());
       scrollToBottom();
     }
-  }, [messages, isOpen]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -78,6 +102,18 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
       text: query,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
+
+    if (!isAiConfigured) {
+      const warnMsg: ChatMessage = {
+        id: `msg-agent-${Date.now()}`,
+        sender: 'agent',
+        text: `### ⚠️ AI API Key Required\n\nNo AI API key is configured. HireFlow operates with authentic LLM intelligence and does **not** provide dummy or hardcoded answers.\n\nPlease open **AI Settings** (top header) and enter a free **Groq** (\`llama-3.3-70b\`) or **Google Gemini** API key to chat with the copilot.`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+      setMessages(prev => [...prev, userMsg, warnMsg]);
+      setInput('');
+      return;
+    }
 
     setMessages(prev => [...prev, userMsg]);
     setInput('');
@@ -103,7 +139,7 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
       const errorMsg: ChatMessage = {
         id: `msg-err-${Date.now()}`,
         sender: 'agent',
-        text: `Error contacting AI engine: ${err.message}. Showing local candidate pipeline summary instead.`,
+        text: `### ⚠️ AI Service Error\n\n${err.message || 'Failed to reach AI service'}.\n\nPlease check your API key in **AI Settings**.`,
         timestamp: 'Just now'
       };
       setMessages(prev => [...prev, errorMsg]);
@@ -140,18 +176,36 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
       {
         id: `init-${Date.now()}`,
         sender: 'agent',
-        text: `Chat cleared. Ask anything about **${role.title}** applicants or eligibility.`,
+        text: isAiConfigured 
+          ? `Conversation cleared. Ask me anything about **${role.title}** applicants, gaps, or qualifications.`
+          : `### ⚠️ AI API Key Required\n\nNo AI API key is configured. Please configure your free **Groq** (\`llama-3.3-70b\`) or **Google Gemini** API key in **AI Settings** to begin.`,
         timestamp: 'Just now'
       }
     ]);
   };
 
-  const promptChips = [
-    'List all candidates who applied',
-    'Which candidates are eligible?',
-    'What are the main risk flags?',
-    'Who has distributed systems experience?'
-  ];
+  const promptChips = isAiConfigured
+    ? [
+        'Which candidates are eligible?',
+        'Compare candidate skills and projects',
+        'What are the main risk flags in this pipeline?',
+        'Summarize top qualification evidence'
+      ]
+    : [
+        '🔑 Connect Free Groq Key',
+        '🔑 Connect Gemini Key',
+        '⚙️ Open AI Settings'
+      ];
+
+  const handleChipClick = (chip: string) => {
+    if (!isAiConfigured) {
+      if (onOpenAiSettings) {
+        onOpenAiSettings();
+      }
+      return;
+    }
+    handleSend(chip);
+  };
 
   return (
     <div className="fixed inset-y-0 right-0 z-40 w-full sm:w-[420px] bg-white border-l border-slate-200 shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
@@ -159,22 +213,28 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
       {/* Header */}
       <div className="h-14 px-4 border-b border-slate-200 flex items-center justify-between bg-white shrink-0">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-sm shrink-0">
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-sm shrink-0 ${
+            isAiConfigured ? 'bg-indigo-600' : 'bg-slate-700'
+          }`}>
             <Bot className="w-4 h-4" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
               <span className="font-bold text-sm text-slate-900 truncate">Recruiter Copilot</span>
-              <span className="text-[10px] font-semibold bg-indigo-50 text-indigo-700 px-1.5 py-0.2 rounded border border-indigo-100">
-                RAG AGENT
+              <span className={`text-[10px] font-semibold px-1.5 py-0.2 rounded border ${
+                isAiConfigured
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : 'bg-amber-50 text-amber-700 border-amber-200'
+              }`}>
+                {isAiConfigured ? 'RAG AGENT ONLINE' : 'AI OFFLINE'}
               </span>
             </div>
             <div className="text-[10px] text-slate-500 truncate flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span className={`w-1.5 h-1.5 rounded-full ${isAiConfigured ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
               <span>
                 {isAiConfigured 
                   ? `${aiConfig.provider === 'groq' ? '⚡ Groq Llama 3.3' : aiConfig.provider === 'gemini' ? 'Gemini 1.5' : 'OpenAI'} Active`
-                  : 'Smart Local Pipeline Engine'}
+                  : 'API Key Required'}
               </span>
             </div>
           </div>
@@ -198,14 +258,43 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
         </div>
       </div>
 
+      {/* API Key Required Alert Banner when offline */}
+      {!isAiConfigured && (
+        <div className="mx-3 mt-3 p-3 bg-amber-50/90 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-900 shrink-0 shadow-2xs">
+          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <div className="font-semibold text-amber-950 flex items-center justify-between">
+              <span>No AI Key Configured</span>
+              <span className="text-[10px] font-bold text-amber-700 bg-amber-100/80 px-1.5 py-0.5 rounded border border-amber-200/50">Dummy Answers Removed</span>
+            </div>
+            <p className="text-amber-800 text-[11px] mt-1 leading-relaxed">
+              HireFlow does not use canned or dummy answers. Connect a free Groq or Google Gemini API key to activate conversational AI intelligence.
+            </p>
+            {onOpenAiSettings && (
+              <button
+                onClick={onOpenAiSettings}
+                className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Configure Free API Key</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Suggested Chips */}
       <div className="px-3 py-2 bg-slate-50/80 border-b border-slate-100 flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
         {promptChips.map((chip, idx) => (
           <button
             key={idx}
-            onClick={() => handleSend(chip)}
+            onClick={() => handleChipClick(chip)}
             disabled={isLoading}
-            className="text-[11px] font-medium bg-white text-slate-700 hover:text-indigo-600 hover:border-indigo-200 border border-slate-200 px-2.5 py-1 rounded-full whitespace-nowrap shadow-2xs transition-colors shrink-0 disabled:opacity-50"
+            className={`text-[11px] font-medium border px-2.5 py-1 rounded-full whitespace-nowrap shadow-2xs transition-colors shrink-0 disabled:opacity-50 cursor-pointer ${
+              !isAiConfigured
+                ? 'bg-amber-50/60 text-amber-800 border-amber-200 hover:bg-amber-100'
+                : 'bg-white text-slate-700 hover:text-indigo-600 hover:border-indigo-200 border-slate-200'
+            }`}
           >
             {chip}
           </button>
@@ -251,7 +340,7 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
               </div>
 
               {/* Mentioned Candidate Quick Jump Chips */}
-              {m.sender === 'agent' && candidates.length > 0 && (
+              {m.sender === 'agent' && candidates.length > 0 && isAiConfigured && (
                 <div className="mt-2.5 pt-2 border-t border-slate-100 flex flex-wrap gap-1.5">
                   {candidates
                     .filter(c => m.text.toLowerCase().includes(c.name.toLowerCase()))
@@ -259,7 +348,7 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
                       <button
                         key={c.id}
                         onClick={() => onSelectCandidate(c)}
-                        className="inline-flex items-center gap-1 text-[10px] font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded transition-colors"
+                        className="inline-flex items-center gap-1 text-[10px] font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded transition-colors cursor-pointer"
                         title={`View ${c.name}'s dossier in workspace`}
                       >
                         <span>View {c.name} ({c.matchScore}%)</span>
@@ -294,7 +383,7 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
           <div className="relative flex-1">
             <input
               type="text"
-              placeholder="Ask anything about candidates, skills, or comparisons..."
+              placeholder={isAiConfigured ? "Ask anything about candidates, skills, or comparisons..." : "Configure API key in AI Settings to chat..."}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               disabled={isLoading}
@@ -305,12 +394,15 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
             <button
               type="button"
               onClick={toggleVoiceInput}
+              disabled={!isAiConfigured}
               className={`absolute right-2 top-2 p-1 rounded transition-colors ${
                 isRecording
                   ? 'text-rose-600 bg-rose-50 animate-pulse'
-                  : 'text-slate-400 hover:text-indigo-600'
+                  : !isAiConfigured
+                  ? 'text-slate-300 cursor-not-allowed'
+                  : 'text-slate-400 hover:text-indigo-600 cursor-pointer'
               }`}
-              title="Voice dictate query"
+              title={isAiConfigured ? "Voice dictate query" : "Configure API key to use voice dictation"}
             >
               {isRecording ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
             </button>
@@ -319,14 +411,16 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
           <button
             type="submit"
             disabled={!input.trim() || isLoading}
-            className="p-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-40 transition-colors shadow-sm shrink-0"
+            className="p-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-40 transition-colors shadow-sm shrink-0 cursor-pointer"
             title="Send query"
           >
             <Send className="w-4 h-4" />
           </button>
         </form>
         <p className="text-[10px] text-slate-400 mt-1.5 text-center">
-          Grounded directly in active candidate resumes, projects, and evidence maps.
+          {isAiConfigured 
+            ? "Grounded directly in active candidate resumes, projects, and evidence maps."
+            : "Zero fake or hardcoded answers. Configure an API key to enable Copilot."}
         </p>
       </div>
 

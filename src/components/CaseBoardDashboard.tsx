@@ -602,6 +602,7 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
           onSelectCandidate(c);
           setMobileTab('dossier');
         }}
+        onOpenAiSettings={onOpenAiSettings}
       />
 
     </div>
