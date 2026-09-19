@@ -9,13 +9,13 @@ import {
   Volume2, 
   VolumeX, 
   AlertTriangle, 
-  ShieldAlert, 
   CheckCircle2, 
   ChevronRight, 
-  GitFork, 
-  Save,
-  Check,
-  Sparkles
+  Save, 
+  Check, 
+  HelpCircle,
+  Sparkles,
+  Award
 } from 'lucide-react';
 
 interface InterviewKitModalProps {
@@ -41,7 +41,6 @@ export const InterviewKitModal: React.FC<InterviewKitModalProps> = ({
     activeQuestion?.candidateAnswer || ''
   );
 
-  // Audio / Speech State
   const [isRecording, setIsRecording] = useState(false);
   const [isPlayingTTS, setIsPlayingTTS] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
@@ -83,7 +82,7 @@ export const InterviewKitModal: React.FC<InterviewKitModalProps> = ({
       setIsPlayingTTS(false);
     } else if (activeQuestion) {
       setIsPlayingTTS(true);
-      AudioService.speak(`${activeQuestion.questionText}. Follow-up probe: ${activeQuestion.followUpProbe}`, () => {
+      AudioService.speak(`${activeQuestion.questionText}. What to look for: ${activeQuestion.followUpProbe}`, () => {
         setIsPlayingTTS(false);
       });
     }
@@ -97,292 +96,208 @@ export const InterviewKitModal: React.FC<InterviewKitModalProps> = ({
     }
   };
 
-  const getSeverityStyle = (severity: QuestionSeverity) => {
+  const getSeverityBadge = (severity: QuestionSeverity) => {
     switch (severity) {
       case 'Deep dive':
-        return 'bg-gold-subtle text-gold-400 border-gold-border';
+        return 'bg-purple-50 text-purple-700 border-purple-200';
       case 'Validate':
-        return 'bg-caution-subtle text-caution-500 border-caution-border';
+        return 'bg-amber-50 text-amber-700 border-amber-200';
       case 'Clarify':
-        return 'bg-verified-subtle text-verified-400 border-verified-border';
+        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-8 bg-black/90 backdrop-blur-md overflow-y-auto font-sans">
-      <div className="dossier-card rounded-3xl w-full max-w-[1500px] h-[92vh] flex flex-col shadow-2xl border-2 border-gold-border/60 bg-ink-950 animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-150">
+      <div className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-5xl h-[88vh] flex flex-col overflow-hidden">
         
-        {/* Top Strip */}
-        <div className="p-5 bg-ink-900 border-b border-ink-border flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-ink-850 border border-ink-border flex items-center justify-center text-gold-400 font-mono font-bold text-sm shadow">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between shrink-0 bg-white">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm">
               {candidate.initials}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-mono text-xs text-gold-400 font-bold uppercase tracking-wider">
-                  TECHNICAL INTERVIEW THEATER
-                </span>
-                <span className="text-slate-600">•</span>
-                <span className="text-[11px] font-mono px-2.5 py-0.5 rounded bg-ink-850 border border-ink-border text-slate-300">
-                  {candidate.fitBadge}
-                </span>
+                <h3 className="text-base font-bold text-slate-900">{candidate.name}</h3>
+                <span className="text-xs text-slate-500 font-medium">• Structured Interview Kit</span>
               </div>
-              <h2 className="text-xl font-extrabold text-white tracking-tight flex items-center gap-2 mt-0.5">
-                {candidate.name}
-                <span className="text-xs font-normal text-slate-400 font-mono">
-                  ({candidate.currentRole})
-                </span>
-              </h2>
+              <p className="text-xs text-slate-500">{candidate.currentRole}</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 text-xs font-mono">
-            <div className="bg-ink-850 px-3.5 py-2 rounded-xl border border-ink-border flex items-center gap-2">
-              <span className="text-slate-400">Match Score:</span>
-              <span className="text-base font-extrabold text-verified-400">{candidate.matchScore}%</span>
-            </div>
-            <div className="bg-ink-850 px-3.5 py-2 rounded-xl border border-ink-border flex items-center gap-2">
-              <span className="text-slate-400">Review Status:</span>
-              <span className="text-gold-400 font-bold">{candidate.reviewStatus}</span>
-            </div>
+          <div className="flex items-center gap-3">
+            <select
+              value={candidate.reviewStatus}
+              onChange={(e) => onUpdateStatus(candidate.id, e.target.value as any)}
+              className="text-xs font-semibold bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-slate-700 hover:border-slate-300 focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="Interview Ready">Status: Interview Ready</option>
+              <option value="Needs Review">Status: Needs Review</option>
+              <option value="Passed Screen">Status: Passed Screen</option>
+              <option value="Offer Extended">Status: Offer Extended</option>
+              <option value="Rejected">Status: Rejected</option>
+            </select>
+
             <button
               onClick={onClose}
-              className="w-9 h-9 rounded-xl bg-ink-850 hover:bg-ink-800 border border-ink-border flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+              className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {/* Main Body: 3 Columns */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 flex-1 overflow-y-auto divide-y lg:divide-y-0 lg:divide-x divide-ink-border bg-ink-950 text-xs">
+        {/* 2-Column Kit Body */}
+        <div className="flex-1 flex overflow-hidden">
           
-          {/* LEFT (4 cols): Questions List */}
-          <div className="lg:col-span-4 p-6 overflow-y-auto space-y-3.5 bg-ink-900/40">
-            <div className="flex items-center justify-between font-mono text-xs text-slate-300 uppercase tracking-wider font-bold pb-1">
-              <div className="flex items-center gap-2 text-gold-400">
-                <MessageSquare className="w-4 h-4 text-gold-500" />
-                <span>Probe List ({candidate.interviewQuestions.length})</span>
-              </div>
+          {/* Question List Sidebar (320px) */}
+          <div className="w-80 border-r border-slate-200 bg-slate-50/50 p-4 overflow-y-auto space-y-2">
+            <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2">
+              Interview Questions ({candidate.interviewQuestions.length})
             </div>
 
-            <div className="space-y-3">
-              {candidate.interviewQuestions.map((q, idx) => {
-                const isSelected = q.id === activeQuestion?.id;
-                return (
-                  <div
-                    key={q.id}
-                    onClick={() => handleSelectQuestion(q)}
-                    className={`p-4 rounded-2xl border transition-all cursor-pointer space-y-2.5 ${
-                      isSelected
-                        ? 'bg-ink-850 border-gold-500 ring-2 ring-gold-500/40 shadow-xl'
-                        : 'bg-ink-900 border-ink-border hover:border-slate-600'
+            {candidate.interviewQuestions.map((q, idx) => {
+              const isSelected = q.id === activeQuestion?.id;
+              const hasAnswer = Boolean(q.candidateAnswer);
+
+              return (
+                <div
+                  key={q.id}
+                  onClick={() => handleSelectQuestion(q)}
+                  className={`p-3 rounded-xl border text-xs cursor-pointer transition-all ${
+                    isSelected
+                      ? 'bg-white border-indigo-500 ring-1 ring-indigo-500 shadow-sm'
+                      : 'bg-white border-slate-200 hover:border-slate-300 text-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-1 mb-1">
+                    <span className="font-semibold text-indigo-600 text-[10px] uppercase tracking-wider">
+                      Probe #{idx + 1}
+                    </span>
+                    <span className={`text-[10px] font-medium px-1.5 py-0.2 rounded border ${getSeverityBadge(q.severityTag)}`}>
+                      {q.severityTag}
+                    </span>
+                  </div>
+
+                  <div className="font-medium text-slate-900 leading-snug line-clamp-2">
+                    {q.questionText}
+                  </div>
+
+                  {hasAnswer && (
+                    <div className="mt-2 text-[10px] text-emerald-600 flex items-center gap-1 font-medium">
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>Notes recorded</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Active Question Workbench */}
+          {activeQuestion ? (
+            <div className="flex-1 p-6 overflow-y-auto space-y-5 bg-white">
+              
+              {/* Question Banner */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                      {activeQuestion.category}
+                    </span>
+                    <span className="text-xs text-slate-500">
+                      Target: <span className="font-semibold text-slate-700">{activeQuestion.targetRequirement}</span>
+                    </span>
+                  </div>
+
+                  {/* Audio Controls */}
+                  <button
+                    onClick={toggleTTS}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-medium border flex items-center gap-1.5 transition-colors ${
+                      isPlayingTTS
+                        ? 'bg-indigo-600 text-white border-indigo-600'
+                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-[10px] text-slate-400 uppercase font-bold">
-                        Probe #{idx + 1}
-                      </span>
-                      <span className={`px-2.5 py-0.5 rounded-lg font-mono text-[10px] font-bold border ${getSeverityStyle(q.severityTag)}`}>
-                        {q.severityTag}
-                      </span>
-                    </div>
-
-                    <div className="text-[11px] font-mono text-gold-400 font-semibold truncate">
-                      {q.targetRequirement}
-                    </div>
-
-                    <p className={`text-xs leading-relaxed line-clamp-2 ${isSelected ? 'text-white font-medium' : 'text-slate-300'}`}>
-                      "{q.questionText}"
-                    </p>
-
-                    {q.candidateAnswer && (
-                      <div className="text-[11px] font-mono text-verified-400 flex items-center gap-1.5 pt-1 font-semibold">
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Response Transcribed</span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* MIDDLE (5 cols): Follow-Up Tree & Interactive Workspace */}
-          <div className="lg:col-span-5 p-6 overflow-y-auto space-y-6">
-            {activeQuestion ? (
-              <>
-                {/* Active Question Focus Header */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs text-slate-400 uppercase tracking-wider">
-                      Targeted Requirement: <strong className="text-white">{activeQuestion.targetRequirement}</strong>
-                    </span>
-                    <span className={`px-2.5 py-0.5 rounded-lg font-mono text-xs font-bold border ${getSeverityStyle(activeQuestion.severityTag)}`}>
-                      {activeQuestion.severityTag}
-                    </span>
-                  </div>
-
-                  {/* Primary Question Box */}
-                  <div className="p-5 rounded-2xl bg-ink-850 border border-ink-border space-y-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <p className="text-base font-bold text-white leading-relaxed">
-                        "{activeQuestion.questionText}"
-                      </p>
-                      <button
-                        onClick={toggleTTS}
-                        className={`p-2.5 rounded-xl border transition-colors flex-shrink-0 ${
-                          isPlayingTTS 
-                            ? 'bg-gold-500 text-ink-950 border-gold-400 font-bold' 
-                            : 'bg-ink-900 border-ink-border text-slate-300 hover:text-white'
-                        }`}
-                        title="Voice Readout"
-                      >
-                        {isPlayingTTS ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
+                    {isPlayingTTS ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                    <span>{isPlayingTTS ? 'Stop Audio' : 'Read Aloud'}</span>
+                  </button>
                 </div>
 
-                {/* Follow-up Tree Branch */}
-                <div className="p-5 rounded-2xl bg-gradient-to-r from-ink-850 to-ink-900 border border-ink-border space-y-2.5 relative pl-7">
-                  <div className="absolute left-3 top-6 bottom-6 w-0.5 bg-gold-500/60" />
-                  <div className="flex items-center gap-2 font-mono text-xs text-gold-400 font-bold">
-                    <GitFork className="w-4 h-4 rotate-180" />
-                    <span>DEEP DIVE PROBE TREE</span>
-                  </div>
-                  <p className="text-xs text-slate-200 leading-relaxed font-mono">
-                    {activeQuestion.followUpProbe}
-                  </p>
-                </div>
-
-                {/* Candidate Answer Recording Area */}
-                <div className="space-y-3 pt-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs text-slate-400 uppercase tracking-wider font-bold">
-                      Live Candidate Transcript & Evaluator Notes
-                    </span>
-
-                    <button
-                      onClick={toggleRecording}
-                      className={`px-3 py-1.5 rounded-xl border font-mono text-xs font-bold flex items-center gap-2 transition-colors ${
-                        isRecording 
-                          ? 'bg-flag-subtle text-flag-500 border-flag-border animate-pulse' 
-                          : 'bg-ink-850 hover:bg-ink-800 border-ink-border text-gold-400'
-                      }`}
-                    >
-                      {isRecording ? (
-                        <>
-                          <MicOff className="w-4 h-4" />
-                          <span>Stop Recording</span>
-                        </>
-                      ) : (
-                        <>
-                          <Mic className="w-4 h-4 text-gold-500" />
-                          <span>Record via Mic</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-
-                  <textarea
-                    rows={4}
-                    value={candidateAnswer}
-                    onChange={e => setCandidateAnswer(e.target.value)}
-                    placeholder="Speak into microphone or transcribe candidate's explanation, architectural tradeoffs, and performance benchmarks..."
-                    className="w-full bg-ink-900 border border-ink-border rounded-2xl p-4 text-white text-xs leading-relaxed focus:outline-none focus:border-gold-500 resize-none font-mono"
-                  />
-
-                  <div className="flex items-center justify-between pt-1">
-                    <span className="text-[11px] text-slate-500 font-mono">
-                      {candidateAnswer ? `${candidateAnswer.length} chars transcribed` : 'No response transcribed yet'}
-                    </span>
-                    <button
-                      onClick={handleSaveAnswer}
-                      className="px-5 py-2.5 rounded-xl bg-gold-500 hover:bg-gold-400 text-ink-950 font-bold text-xs flex items-center gap-2 transition-colors shadow-lg"
-                    >
-                      {savedSuccess ? (
-                        <>
-                          <Check className="w-4 h-4" />
-                          <span>Saved to Dossier</span>
-                        </>
-                      ) : (
-                        <>
-                          <Save className="w-4 h-4" />
-                          <span>Save Evaluation</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="p-8 text-center text-slate-500">
-                Select a probe on the left to begin technical evaluation.
+                <h2 className="text-lg font-bold text-slate-900 leading-snug">
+                  "{activeQuestion.questionText}"
+                </h2>
               </div>
-            )}
-          </div>
 
-          {/* RIGHT (3 cols): Concern Focus & Outcome */}
-          <div className="lg:col-span-3 p-6 overflow-y-auto space-y-6 bg-ink-900/30">
-            
-            {/* Concern List */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 font-mono text-xs text-caution-500 uppercase tracking-wider font-bold">
-                <AlertTriangle className="w-4 h-4" />
-                <span>Evaluator Warning Flag</span>
-              </div>
-              <div className="p-4 rounded-2xl bg-ink-850 border border-ink-border space-y-1.5">
-                <div className="font-bold text-white text-xs">Probe Target</div>
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  {activeQuestion?.concernNote || 'Verify candidate demonstrates hands-on implementation depth rather than framework abstraction.'}
+              {/* What to look for */}
+              <div className="p-4 bg-amber-50/70 border border-amber-200/80 rounded-xl space-y-1">
+                <div className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                  <HelpCircle className="w-4 h-4 text-amber-700" />
+                  <span>Evaluation Rubric & What to Look For:</span>
+                </div>
+                <p className="text-xs text-amber-950 leading-relaxed pl-5">
+                  {activeQuestion.followUpProbe}
                 </p>
+                {activeQuestion.concernNote && (
+                  <div className="pl-5 pt-1 text-[11px] text-amber-800 italic">
+                    Note for interviewer: {activeQuestion.concernNote}
+                  </div>
+                )}
               </div>
-            </div>
 
-            {/* Unverified Gaps */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 font-mono text-xs text-slate-400 uppercase tracking-wider font-bold">
-                <ShieldAlert className="w-4 h-4 text-flag-500" />
-                <span>Unverified Gaps on File</span>
-              </div>
+              {/* Response Note Taking Area */}
               <div className="space-y-2">
-                {candidate.evidenceMap
-                  .filter(ev => ev.status !== 'Verified')
-                  .map((ev, i) => (
-                    <div key={i} className="p-3 rounded-xl bg-ink-850 border border-ink-border space-y-1 text-xs">
-                      <div className="font-bold text-white">{ev.requirement}</div>
-                      <div className="text-slate-400 text-[11px] font-mono">{ev.snippet}</div>
-                    </div>
-                  ))}
-              </div>
-            </div>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+                    <MessageSquare className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Candidate Answer & Interview Notes</span>
+                  </label>
 
-            {/* Next Action Outcome */}
-            <div className="space-y-3 pt-3 border-t border-ink-border">
-              <div className="font-mono text-xs text-slate-400 uppercase tracking-wider font-bold">
-                Interview Verdict
-              </div>
-              <div className="space-y-2">
-                <button
-                  onClick={() => onUpdateStatus(candidate.id, 'Interview Ready')}
-                  className="w-full py-2.5 px-3.5 rounded-xl bg-verified-subtle hover:bg-verified-subtle/80 text-verified-400 border border-verified-border font-bold text-xs transition-colors text-left flex items-center justify-between"
-                >
-                  <span>Pass Technical Probe</span>
-                  <CheckCircle2 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => onUpdateStatus(candidate.id, 'Needs Validation')}
-                  className="w-full py-2.5 px-3.5 rounded-xl bg-caution-subtle hover:bg-caution-subtle/80 text-caution-500 border border-caution-border font-bold text-xs transition-colors text-left flex items-center justify-between"
-                >
-                  <span>Needs Follow-up Session</span>
-                  <AlertTriangle className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
+                  {/* Native Speech-to-Text Microphone Button */}
+                  <button
+                    onClick={toggleRecording}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border flex items-center gap-1.5 transition-all ${
+                      isRecording
+                        ? 'bg-rose-500 text-white border-rose-600 animate-pulse shadow-sm'
+                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                    title="Live Speech-to-Text via Web Speech API"
+                  >
+                    {isRecording ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5 text-indigo-600" />}
+                    <span>{isRecording ? 'Listening (Click to Stop)...' : 'Voice Dictate'}</span>
+                  </button>
+                </div>
 
-          </div>
+                <textarea
+                  rows={8}
+                  placeholder="Record candidate's explanations, architectural tradeoffs, depth of hands-on knowledge, and scoring notes..."
+                  value={candidateAnswer}
+                  onChange={(e) => setCandidateAnswer(e.target.value)}
+                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 leading-relaxed shadow-sm"
+                />
+
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[11px] text-slate-400">
+                    Auto-attaches to candidate's evaluation record
+                  </span>
+
+                  <button
+                    onClick={handleSaveAnswer}
+                    className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm flex items-center gap-1.5 transition-colors"
+                  >
+                    {savedSuccess ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
+                    <span>{savedSuccess ? 'Notes Saved!' : 'Save Candidate Answer'}</span>
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-xs text-slate-400">
+              Select a question on the left to start evaluating.
+            </div>
+          )}
 
         </div>
 

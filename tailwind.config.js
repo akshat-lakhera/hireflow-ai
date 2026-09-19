@@ -4,53 +4,55 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
-  darkMode: 'class',
   theme: {
     extend: {
       colors: {
-        // High-End Executive Dossier / Mineral Obsidian Palette (No generic blue AI slop)
-        ink: {
-          950: '#06080C', // deepest onyx void
-          900: '#0A0D13', // primary screen background
-          850: '#0F131B', // elevated base
-          800: '#141924', // card background
-          750: '#1A212E', // card hover / elevated
-          700: '#222B3C', // card active
-          border: 'rgba(255, 255, 255, 0.07)',
-          borderHover: 'rgba(255, 255, 255, 0.16)',
-          borderSubtle: '#18202D',
+        // Human-Centric B2B SaaS Palette (Ashby / Lever / Gem Benchmark)
+        brand: {
+          50: '#EEF2FF',
+          100: '#E0E7FF',
+          200: '#C7D2FE',
+          500: '#6366F1',
+          600: '#4F46E5', // Primary Action Accent
+          700: '#4338CA',
+          800: '#3730A3',
+          900: '#312E81',
         },
-        // Warm Champagne Amber Gold Accent (Classified dossier aesthetic)
-        gold: {
-          500: '#E5A93C', // primary brand accent
-          400: '#F3BA54', // hover / highlight
-          600: '#C88D27', // active
-          glow: 'rgba(229, 169, 60, 0.20)',
-          subtle: 'rgba(229, 169, 60, 0.10)',
-          border: 'rgba(229, 169, 60, 0.35)',
+        surface: {
+          canvas: '#F8FAFC',  // Clean Soft Slate Background
+          card: '#FFFFFF',    // Solid White Card Surface
+          subtle: '#F1F5F9',  // Subtle Hover / Nested Surface
+          border: '#E2E8F0',  // Crisp 1px Border
+          borderHover: '#CBD5E1',
         },
-        // Grounded Status Colors
-        verified: {
-          500: '#10B981', // emerald green (verified evidence)
-          400: '#34D399',
-          subtle: 'rgba(16, 185, 129, 0.12)',
-          border: 'rgba(16, 185, 129, 0.30)',
-        },
-        caution: {
-          500: '#F59E0B', // warm amber (needs validation)
-          subtle: 'rgba(245, 158, 11, 0.12)',
-          border: 'rgba(245, 158, 11, 0.30)',
-        },
-        flag: {
-          500: '#F87171', // coral crimson (risk / missing)
-          subtle: 'rgba(248, 113, 113, 0.12)',
-          border: 'rgba(248, 113, 113, 0.30)',
+        textPrimary: '#0F172A',   // High-Contrast Dark Slate
+        textSecondary: '#475569', // Slate-600 Body
+        textMuted: '#94A3B8',     // Slate-400 Captions
+        
+        // Accessible Semantic Badges (AAA contrast)
+        status: {
+          verifiedBg: '#DCFCE7',
+          verifiedText: '#15803D',
+          verifiedBorder: '#BBF7D0',
+
+          validationBg: '#FEF3C7',
+          validationText: '#B45309',
+          validationBorder: '#FDE68A',
+
+          riskBg: '#FFE4E6',
+          riskText: '#9F1239',
+          riskBorder: '#FECDD3',
         }
       },
       fontFamily: {
         sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
         mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
       },
+      boxShadow: {
+        'card': '0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05)',
+        'card-hover': '0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05)',
+        'dropdown': '0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04)',
+      }
     },
   },
   plugins: [],

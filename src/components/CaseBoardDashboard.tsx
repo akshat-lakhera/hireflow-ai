@@ -1,26 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { CandidateCaseFile, RoleSetup, ReviewMode } from '../types';
 import { RolePanel } from './RolePanel';
 import { CandidateCaseFileCard } from './CandidateCaseFileCard';
+import { CandidateExecutiveDossier } from './CandidateExecutiveDossier';
 import { InsightRail } from './InsightRail';
 import { 
-  Briefcase, 
+  SlidersHorizontal, 
   UploadCloud, 
-  FolderLock, 
-  Search, 
-  Users, 
-  Plus, 
+  Sparkles, 
+  Trash2, 
   RotateCcw, 
-  FolderOpen, 
-  AlertTriangle,
-  Scale,
-  SlidersHorizontal,
-  FileText,
-  Trash2,
-  Sparkles,
-  Layers,
-  Clock
+  Users, 
+  Briefcase,
+  CheckCircle2,
+  FileSpreadsheet,
+  GripVertical
 } from 'lucide-react';
+import { AiService } from '../services/aiApi';
 
 interface CaseBoardDashboardProps {
   role: RoleSetup;
@@ -32,6 +28,7 @@ interface CaseBoardDashboardProps {
   onOpenInterviewKit: (candidate: CandidateCaseFile) => void;
   onOpenOnboarding: () => void;
   onOpenUpload: () => void;
+  onOpenAiSettings: () => void;
   onLoadSingleDemoCase: () => void;
   onClearBoard: () => void;
   onSetReviewMode: (mode: ReviewMode) => void;
@@ -39,6 +36,8 @@ interface CaseBoardDashboardProps {
   onUpdateStatus: (candidateId: string, status: CandidateCaseFile['reviewStatus']) => void;
   onOpenCompare: (candidates: CandidateCaseFile[]) => void;
   onBackToLanding: () => void;
+  onReevaluateWithAi?: (candidate: CandidateCaseFile) => void;
+  isAiEvaluating?: boolean;
 }
 
 export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
@@ -51,330 +50,369 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
   onOpenInterviewKit,
   onOpenOnboarding,
   onOpenUpload,
+  onOpenAiSettings,
   onLoadSingleDemoCase,
   onClearBoard,
   onSetReviewMode,
   onAddNote,
   onUpdateStatus,
   onOpenCompare,
-  onBackToLanding
+  onBackToLanding,
+  onReevaluateWithAi,
+  isAiEvaluating
 }) => {
-  const [activeReqFilter, setActiveReqFilter] = useState<'all' | 'must_have' | 'nice_to_have' | 'missing'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [badgeFilter, setBadgeFilter] = useState<'all' | 'Strong fit' | 'Needs validation' | 'High risk'>('all');
-  const [comparingIds, setComparingIds] = useState<string[]>([]);
-  const [currentTime, setCurrentTime] = useState<string>('');
+  const [selectedForCompare, setSelectedForCompare] = useState<string[]>([]);
 
-  useEffect(() => {
-    const update = () => {
-      const now = new Date();
-      setCurrentTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-    };
-    update();
-    const interval = setInterval(update, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Selected candidate object
-  const selectedCandidate = candidates.find(c => c.id === selectedCandidateId) || candidates[0] || null;
-
-  // Toggle candidate for comparison
-  const handleToggleCompare = (id: string) => {
-    setComparingIds(prev => {
-      if (prev.includes(id)) {
-        return prev.filter(item => item !== id);
-      } else {
-        const next = [...prev, id];
-        if (next.length === 2) {
-          const compCandidates = candidates.filter(c => next.includes(c.id));
-          onOpenCompare(compCandidates);
-        }
-        return next;
-      }
-    });
-  };
-
-  // Filter candidates based on search & badge
-  const filteredCandidates = candidates.filter(c => {
-    if (badgeFilter !== 'all' && c.fitBadge !== badgeFilter) {
-      return false;
+  // Resizable Panels State (like Antigravity IDE / VS Code)
+  const [leftWidth, setLeftWidth] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('hireflow_left_width');
+      return saved ? Math.max(220, Math.min(520, Number(saved))) : 290;
+    } catch {
+      return 290;
     }
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      const matchName = c.name.toLowerCase().includes(q);
-      const matchRole = c.currentRole.toLowerCase().includes(q);
-      const matchSkills = c.matchedSkills.some(s => s.toLowerCase().includes(q));
-      return matchName || matchRole || matchSkills;
-    }
-    return true;
   });
 
+  const [rightWidth, setRightWidth] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('hireflow_right_width');
+      return saved ? Math.max(260, Math.min(520, Number(saved))) : 340;
+    } catch {
+      return 340;
+    }
+  });
+
+  const [isDraggingLeft, setIsDraggingLeft] = useState(false);
+  const [isDraggingRight, setIsDraggingRight] = useState(false);
+
+  const startDraggingLeft = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDraggingLeft(true);
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const newWidth = Math.max(220, Math.min(520, moveEvent.clientX));
+      setLeftWidth(newWidth);
+      localStorage.setItem('hireflow_left_width', String(newWidth));
+    };
+
+    const handleMouseUp = () => {
+      setIsDraggingLeft(false);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const startDraggingRight = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDraggingRight(true);
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const newWidth = Math.max(260, Math.min(520, window.innerWidth - moveEvent.clientX));
+      setRightWidth(newWidth);
+      localStorage.setItem('hireflow_right_width', String(newWidth));
+    };
+
+    const handleMouseUp = () => {
+      setIsDraggingRight(false);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  };
+
+  // Filter candidates by search query
+  const filteredCandidates = useMemo(() => {
+    if (!searchQuery.trim()) return candidates;
+    const q = searchQuery.toLowerCase();
+    return candidates.filter(c => 
+      c.name.toLowerCase().includes(q) ||
+      c.currentRole.toLowerCase().includes(q) ||
+      c.matchedSkills.some(s => s.toLowerCase().includes(q)) ||
+      (c.projects && c.projects.some(p => p.name.toLowerCase().includes(q) || (p.technologies && p.technologies.toLowerCase().includes(q))))
+    );
+  }, [candidates, searchQuery]);
+
+  // Selected candidate object
+  const selectedCandidate = useMemo(() => {
+    return candidates.find(c => c.id === selectedCandidateId) || candidates[0] || null;
+  }, [candidates, selectedCandidateId]);
+
+  const aiConfig = AiService.getConfig();
+  const isAiActive = AiService.isConfigured();
+
+  const toggleCompare = (candidateId: string) => {
+    setSelectedForCompare(prev => 
+      prev.includes(candidateId)
+        ? prev.filter(id => id !== candidateId)
+        : [...prev, candidateId]
+    );
+  };
+
+  const handleLaunchCompare = () => {
+    const compareList = candidates.filter(c => selectedForCompare.includes(c.id));
+    if (compareList.length >= 2) {
+      onOpenCompare(compareList);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-ink-950 text-slate-200 flex flex-col font-sans ambient-glow">
+    <div className="h-screen flex flex-col bg-slate-50 text-slate-900 font-sans overflow-hidden">
       
-      {/* Top Command Bar */}
-      <header className="w-full border-b border-ink-border bg-ink-900/90 backdrop-blur-md sticky top-0 z-30">
-        <div className="max-w-[1800px] mx-auto px-6 sm:px-8 h-18 flex items-center justify-between gap-4">
-          
-          {/* Logo & Active Role Spec Pill */}
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={onBackToLanding}
-              className="flex items-center gap-3 hover:opacity-90 transition-opacity"
-              title="Return to Overview"
-            >
-              <div className="w-9 h-9 rounded-xl bg-gold-glow border border-gold-border flex items-center justify-center text-gold-500 font-bold text-sm shadow-md">
-                HF
-              </div>
-              <div className="text-left hidden sm:block">
-                <span className="font-extrabold text-base tracking-tight text-white block leading-none">
-                  HireFlow
-                </span>
-                <span className="text-[10px] font-mono text-gold-400 leading-none">
-                  Investigation Room
-                </span>
-              </div>
-            </button>
-
-            <span className="text-slate-700 hidden sm:inline">/</span>
-
-            <div className="flex items-center gap-2.5 bg-ink-850 px-3 py-1.5 rounded-xl border border-ink-border text-xs font-mono">
-              <FolderLock className="w-3.5 h-3.5 text-gold-500" />
-              <span className="text-slate-200 font-semibold truncate max-w-[200px] md:max-w-xs">
-                {role.title}
-              </span>
-              <span className="px-2 py-0.5 rounded bg-ink-950 text-gold-400 text-[10px] font-bold">
-                {role.seniority}
-              </span>
-            </div>
-          </div>
-
-          {/* Center Persona Switcher */}
-          <div className="hidden md:flex items-center p-1 rounded-xl bg-ink-850 border border-ink-border text-xs font-mono">
-            <button
-              onClick={() => onSetReviewMode('recruiter')}
-              className={`px-3.5 py-1.5 rounded-lg transition-colors ${
-                reviewMode === 'recruiter'
-                  ? 'bg-gold-500 text-ink-950 font-bold shadow'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Recruiter Mode
-            </button>
-            <button
-              onClick={() => onSetReviewMode('interviewer')}
-              className={`px-3.5 py-1.5 rounded-lg transition-colors ${
-                reviewMode === 'interviewer'
-                  ? 'bg-gold-500 text-ink-950 font-bold shadow'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Interviewer Mode
-            </button>
-            <button
-              onClick={() => onSetReviewMode('team_review')}
-              className={`px-3.5 py-1.5 rounded-lg transition-colors ${
-                reviewMode === 'team_review'
-                  ? 'bg-gold-500 text-ink-950 font-bold shadow'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Team Review
-            </button>
-          </div>
-
-          {/* Right Action Terminal */}
-          <div className="flex items-center gap-2.5">
-            
-            {currentTime && (
-              <div className="hidden xl:flex items-center gap-1.5 text-xs font-mono text-slate-500 px-2.5 py-1 rounded-lg bg-ink-900 border border-ink-border mr-1">
-                <Clock className="w-3.5 h-3.5 text-gold-500" />
-                <span>{currentTime}</span>
-              </div>
-            )}
-
-            {comparingIds.length > 0 && (
-              <button
-                onClick={() => {
-                  const compCandidates = candidates.filter(c => comparingIds.includes(c.id));
-                  if (compCandidates.length >= 2) onOpenCompare(compCandidates);
-                }}
-                className="px-3 py-2 rounded-xl bg-gold-subtle border border-gold-border text-gold-400 text-xs font-mono font-bold flex items-center gap-1.5 animate-pulse"
-              >
-                <Scale className="w-3.5 h-3.5" />
-                <span>Compare ({comparingIds.length}/2)</span>
-              </button>
-            )}
-
-            <button
-              onClick={onOpenUpload}
-              className="px-4 py-2 rounded-xl bg-ink-850 hover:bg-ink-800 border border-ink-border text-slate-200 text-xs font-semibold transition-colors flex items-center gap-2"
-            >
-              <UploadCloud className="w-4 h-4 text-gold-500" />
-              <span className="hidden sm:inline">Upload Candidate</span>
-            </button>
-
-            <button
-              onClick={onOpenOnboarding}
-              className="px-4 py-2 rounded-xl bg-gold-500 hover:bg-gold-400 text-ink-950 text-xs font-extrabold transition-colors flex items-center gap-1.5 shadow-md"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Role Studio</span>
-            </button>
-
-            {candidates.length === 0 ? (
-              <button
-                onClick={onLoadSingleDemoCase}
-                className="px-3 py-2 rounded-xl bg-ink-850 hover:bg-ink-800 border border-ink-border text-gold-400 text-xs font-mono font-bold transition-colors"
-                title="Load 1 reference case to inspect"
-              >
-                Demo Case
-              </button>
-            ) : (
-              <button
-                onClick={onClearBoard}
-                className="p-2 rounded-xl bg-ink-850 hover:bg-ink-800 border border-ink-border text-slate-400 hover:text-flag-500 transition-colors"
-                title="Clear board (start completely fresh)"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            )}
-
-          </div>
-
-        </div>
-      </header>
-
-      {/* Main Full-Screen Deck: 3 Columns */}
-      <main className="flex-1 max-w-[1800px] mx-auto w-full p-6 sm:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      {/* 1. TOP GLOBAL NAVIGATION (Ashby / Lever Benchmark) */}
+      <header className="h-14 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0 z-20 shadow-sm">
         
-        {/* COLUMN 1 (3 cols): Role Panel */}
-        <aside className="lg:col-span-3 space-y-4">
-          <RolePanel
-            role={role}
-            activeFilter={activeReqFilter}
-            onFilterChange={setActiveReqFilter}
-            onEditRole={onOpenOnboarding}
-          />
-        </aside>
-
-        {/* COLUMN 2 (5 cols): Candidate Case Files */}
-        <section className="lg:col-span-5 space-y-4">
-          
-          {/* Middle Column Header & Filters */}
-          <div className="dossier-card rounded-2xl p-5 border border-ink-border space-y-3.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <FolderLock className="w-4 h-4 text-gold-500" />
-                <h2 className="font-extrabold text-sm text-white">Candidate Case Dossiers</h2>
-                <span className="font-mono text-xs px-2.5 py-0.5 rounded bg-ink-900 border border-ink-border text-gold-400 font-bold">
-                  {filteredCandidates.length}
-                </span>
-              </div>
-
-              {/* Badges Filter */}
-              <div className="flex items-center gap-1 text-[11px] font-mono">
-                <button
-                  onClick={() => setBadgeFilter('all')}
-                  className={`px-2.5 py-1 rounded-lg ${badgeFilter === 'all' ? 'bg-gold-500 text-ink-950 font-bold' : 'text-slate-400'}`}
-                >
-                  All
-                </button>
-                <button
-                  onClick={() => setBadgeFilter('Strong fit')}
-                  className={`px-2.5 py-1 rounded-lg ${badgeFilter === 'Strong fit' ? 'bg-verified-subtle text-verified-400 font-bold border border-verified-border' : 'text-slate-400'}`}
-                >
-                  Strong
-                </button>
-                <button
-                  onClick={() => setBadgeFilter('Needs validation')}
-                  className={`px-2.5 py-1 rounded-lg ${badgeFilter === 'Needs validation' ? 'bg-caution-subtle text-caution-500 font-bold border border-caution-border' : 'text-slate-400'}`}
-                >
-                  Needs Val.
-                </button>
-                <button
-                  onClick={() => setBadgeFilter('High risk')}
-                  className={`px-2.5 py-1 rounded-lg ${badgeFilter === 'High risk' ? 'bg-flag-subtle text-flag-500 font-bold border border-flag-border' : 'text-slate-400'}`}
-                >
-                  Risk
-                </button>
-              </div>
+        {/* Left: Brand + Active Role */}
+        <div className="flex items-center gap-4">
+          <div 
+            onClick={onBackToLanding}
+            className="flex items-center gap-2 cursor-pointer hover:opacity-85 transition-opacity"
+          >
+            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-sm">
+              HF
             </div>
-
-            {/* Keyword Search Input */}
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-500" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search candidates by name, skill, or verified project..."
-                className="w-full bg-ink-900 border border-ink-border rounded-xl pl-10 pr-4 py-2.5 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-gold-500 font-mono"
-              />
+            <div>
+              <span className="font-bold text-sm tracking-tight text-slate-900">HireFlow</span>
+              <span className="ml-1.5 text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                RECRUITER WORKSPACE
+              </span>
             </div>
           </div>
 
-          {/* Candidate Cards List or States */}
-          {filteredCandidates.length === 0 ? (
-            /* Empty State: File Folder Illustration */
-            <div className="dossier-card rounded-3xl p-12 border border-ink-border text-center space-y-5 bg-ink-900/40">
-              <div className="w-16 h-16 rounded-2xl bg-ink-850 border border-ink-border flex items-center justify-center mx-auto text-gold-500 shadow-inner">
-                <FolderOpen className="w-8 h-8" />
-              </div>
-              <div>
-                <h3 className="text-lg font-extrabold text-white">No candidates loaded yet</h3>
-                <p className="text-slate-400 text-xs mt-1.5 max-w-sm mx-auto leading-relaxed">
-                  Upload candidate resumes for <strong className="text-white">{role.title}</strong>, or try the 1 sample case.
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-                <button
-                  onClick={onOpenUpload}
-                  className="px-6 py-3 rounded-xl bg-gold-500 hover:bg-gold-400 text-ink-950 font-bold text-xs shadow-lg transition-colors inline-flex items-center gap-2"
-                >
-                  <UploadCloud className="w-4 h-4" />
-                  <span>Upload Candidate Resumes</span>
-                </button>
-                <button
-                  onClick={onLoadSingleDemoCase}
-                  className="px-5 py-3 rounded-xl bg-ink-850 hover:bg-ink-800 border border-ink-border text-slate-200 font-semibold text-xs transition-colors"
-                >
-                  Try 1 Demo Case
-                </button>
-              </div>
-            </div>
-          ) : (
-            /* Scrollable Real Candidate Cards */
-            <div className="space-y-4 max-h-[calc(100vh-14rem)] overflow-y-auto pr-1">
-              {filteredCandidates.map(candidate => (
-                <CandidateCaseFileCard
-                  key={candidate.id}
-                  candidate={candidate}
-                  isSelected={candidate.id === selectedCandidate?.id}
-                  isCompared={comparingIds.includes(candidate.id)}
-                  onSelect={() => onSelectCandidate(candidate)}
-                  onViewCase={() => onOpenCaseFile(candidate)}
-                  onGenerateQuestions={() => onOpenInterviewKit(candidate)}
-                  onToggleCompare={() => handleToggleCompare(candidate.id)}
-                />
-              ))}
-            </div>
+          <div className="h-5 w-px bg-slate-200" />
+
+          {/* Active Role Switcher Pill */}
+          <button
+            onClick={onOpenOnboarding}
+            className="flex items-center gap-2 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80 transition-colors"
+          >
+            <Briefcase className="w-3.5 h-3.5 text-indigo-600" />
+            <span className="truncate max-w-[200px]">{role.title}</span>
+            <span className="text-[10px] text-slate-400 font-mono">({role.seniority})</span>
+          </button>
+        </div>
+
+        {/* Center: AI Engine Status Pill */}
+        <div className="hidden md:flex items-center gap-2">
+          <button
+            onClick={onOpenAiSettings}
+            className={`px-3 py-1 rounded-full text-xs font-medium border flex items-center gap-1.5 transition-all ${
+              isAiActive
+                ? 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
+                : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200/60'
+            }`}
+          >
+            <Sparkles className={`w-3.5 h-3.5 ${isAiActive ? 'text-indigo-600' : 'text-slate-400'}`} />
+            <span>
+              {isAiActive 
+                ? `${aiConfig.provider === 'groq' ? '⚡ Groq' : aiConfig.provider === 'gemini' ? 'Gemini' : 'OpenAI'} (${aiConfig.model}) Active`
+                : '⚡ Local Engine (Click to add Groq/Gemini key)'}
+            </span>
+          </button>
+        </div>
+
+        {/* Right: Actions (Compare, Add Candidate, Demo/Clear) */}
+        <div className="flex items-center gap-2.5">
+          {selectedForCompare.length >= 2 && (
+            <button
+              onClick={handleLaunchCompare}
+              className="px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded-lg flex items-center gap-1.5 transition-colors shadow-sm"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              <span>Compare Matrix ({selectedForCompare.length})</span>
+            </button>
           )}
 
-        </section>
+          <button
+            onClick={onOpenUpload}
+            className="px-3.5 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center gap-1.5 shadow-sm transition-colors"
+          >
+            <UploadCloud className="w-3.5 h-3.5" />
+            <span>Add Candidate</span>
+          </button>
 
-        {/* COLUMN 3 (4 cols): Insight Rail */}
-        <aside className="lg:col-span-4 space-y-4">
+          <div className="h-5 w-px bg-slate-200" />
+
+          {candidates.length === 0 ? (
+            <button
+              onClick={onLoadSingleDemoCase}
+              className="px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors"
+              title="Load 1 reference demo case"
+            >
+              Load Demo Case
+            </button>
+          ) : (
+            <button
+              onClick={onClearBoard}
+              className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-100 transition-colors"
+              title="Clear Candidate Pipeline"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+      </header>
+
+      {/* 2. THREE-COLUMN RESIZABLE HUMAN RECRUITER WORKSPACE (IDE SPLIT) */}
+      <div className="flex-1 flex overflow-hidden relative">
+        
+        {/* COLUMN 1: LEFT PANEL (Resizable) — Active Role & Candidate Pipeline List */}
+        <aside 
+          style={{ width: `${leftWidth}px` }} 
+          className="border-r border-slate-200 bg-slate-50/50 flex flex-col p-3.5 shrink-0 overflow-hidden select-text"
+        >
+          <RolePanel
+            role={role}
+            candidateCount={filteredCandidates.length}
+            reviewMode={reviewMode}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            onOpenRoleStudio={onOpenOnboarding}
+            onOpenUpload={onOpenUpload}
+          />
+
+          {/* Candidate Card Stream */}
+          <div className="flex-1 overflow-y-auto space-y-2.5 mt-3 pr-1">
+            {filteredCandidates.length === 0 ? (
+              <div className="p-6 bg-white rounded-xl border border-slate-200 text-center space-y-3 mt-4">
+                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mx-auto">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-slate-800">No candidates found</div>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Upload a resume PDF to start evaluating candidates against this role.
+                  </p>
+                </div>
+                <button
+                  onClick={onOpenUpload}
+                  className="px-3 py-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors inline-block"
+                >
+                  Upload Resume PDF
+                </button>
+              </div>
+            ) : (
+              filteredCandidates.map((c) => (
+                <div key={c.id} className="relative">
+                  <CandidateCaseFileCard
+                    candidate={c}
+                    isSelected={selectedCandidate?.id === c.id}
+                    reviewMode={reviewMode}
+                    onSelect={() => onSelectCandidate(c)}
+                    onOpenDetail={() => onOpenCaseFile(c)}
+                    onOpenInterviewKit={() => onOpenInterviewKit(c)}
+                  />
+                  {/* Compare checkbox */}
+                  <label className="absolute top-2 right-2 flex items-center gap-1 text-[10px] text-slate-400 hover:text-slate-600 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedForCompare.includes(c.id)}
+                      onChange={() => toggleCompare(c.id)}
+                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-3 h-3"
+                    />
+                  </label>
+                </div>
+              ))
+            )}
+          </div>
+        </aside>
+
+        {/* DRAGGABLE SPLITTER 1 (Between Left & Center) */}
+        <div
+          onMouseDown={startDraggingLeft}
+          onDoubleClick={() => {
+            setLeftWidth(290);
+            localStorage.setItem('hireflow_left_width', '290');
+          }}
+          className={`w-2 -ml-1 cursor-col-resize flex items-center justify-center group relative shrink-0 z-20 transition-colors ${
+            isDraggingLeft ? 'bg-indigo-500' : 'bg-transparent hover:bg-indigo-500/20'
+          }`}
+          title="Drag to resize panel (Double-click to reset)"
+        >
+          <div className={`w-0.5 h-8 rounded-full transition-colors ${
+            isDraggingLeft ? 'bg-white' : 'bg-slate-300 group-hover:bg-indigo-500'
+          }`} />
+        </div>
+
+        {/* COLUMN 2: CENTER PANEL (FLEX EXPAND) — Candidate Executive Dossier */}
+        <main className="flex-1 min-w-0 flex flex-col p-4 bg-slate-100/60 overflow-hidden">
+          {selectedCandidate ? (
+            <CandidateExecutiveDossier
+              candidate={selectedCandidate}
+              reviewMode={reviewMode}
+              onOpenInterviewKit={onOpenInterviewKit}
+              onUpdateStatus={onUpdateStatus}
+              onAddNote={onAddNote}
+              onReevaluateWithAi={onReevaluateWithAi ? () => onReevaluateWithAi(selectedCandidate) : undefined}
+              isAiEvaluating={isAiEvaluating}
+            />
+          ) : (
+            <div className="flex-1 bg-white rounded-xl border border-slate-200 flex flex-col items-center justify-center p-8 text-center space-y-3">
+              <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400">
+                <Briefcase className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900">No Candidate Selected</h3>
+                <p className="text-xs text-slate-500 mt-1 max-w-sm">
+                  Select a candidate from the left pipeline or upload a resume to view their grounded executive dossier.
+                </p>
+              </div>
+              <button
+                onClick={onOpenUpload}
+                className="px-4 py-2 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm"
+              >
+                Upload Candidate PDF
+              </button>
+            </div>
+          )}
+        </main>
+
+        {/* DRAGGABLE SPLITTER 2 (Between Center & Right) */}
+        <div
+          onMouseDown={startDraggingRight}
+          onDoubleClick={() => {
+            setRightWidth(340);
+            localStorage.setItem('hireflow_right_width', '340');
+          }}
+          className={`w-2 -mr-1 cursor-col-resize flex items-center justify-center group relative shrink-0 z-20 transition-colors ${
+            isDraggingRight ? 'bg-indigo-500' : 'bg-transparent hover:bg-indigo-500/20'
+          }`}
+          title="Drag to resize panel (Double-click to reset)"
+        >
+          <div className={`w-0.5 h-8 rounded-full transition-colors ${
+            isDraggingRight ? 'bg-white' : 'bg-slate-300 group-hover:bg-indigo-500'
+          }`} />
+        </div>
+
+        {/* COLUMN 3: RIGHT PANEL (Resizable) — Contextual Actions & AI Probes */}
+        <aside 
+          style={{ width: `${rightWidth}px` }} 
+          className="border-l border-slate-200 bg-slate-50/50 flex flex-col p-3.5 shrink-0 overflow-y-auto select-text"
+        >
           <InsightRail
             candidate={selectedCandidate}
-            onOpenCaseFile={onOpenCaseFile}
-            onOpenInterviewKit={onOpenInterviewKit}
-            onAddNote={onAddNote}
+            reviewMode={reviewMode}
             onUpdateStatus={onUpdateStatus}
+            onAddNote={onAddNote}
+            onOpenInterviewKit={onOpenInterviewKit}
           />
         </aside>
 
-      </main>
+      </div>
 
     </div>
   );

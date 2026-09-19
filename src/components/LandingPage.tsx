@@ -6,11 +6,13 @@ import {
   ArrowRight, 
   CheckCircle2, 
   AlertTriangle,
-  FolderLock,
   Sparkles,
-  Terminal,
+  Users,
+  Briefcase,
   Layers,
-  ChevronRight
+  ChevronRight,
+  Mic,
+  Cpu
 } from 'lucide-react';
 
 interface LandingPageProps {
@@ -23,192 +25,115 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onTrySampleCase
 }) => {
   return (
-    <div className="min-h-screen bg-ink-950 text-slate-100 flex flex-col font-sans ambient-glow">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
       
       {/* Top Navigation Bar */}
-      <header className="w-full border-b border-ink-border bg-ink-900/80 backdrop-blur-md sticky top-0 z-30 px-6 sm:px-12 h-18 flex items-center justify-between">
+      <header className="w-full border-b border-slate-200 bg-white sticky top-0 z-30 px-6 sm:px-12 h-16 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-gold-glow border border-gold-border flex items-center justify-center text-gold-500 font-bold text-sm">
+          <div className="w-9 h-9 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-sm">
             HF
           </div>
           <div className="flex items-center gap-2">
-            <span className="font-extrabold text-base tracking-tight text-white">HireFlow</span>
-            <span className="text-[10px] font-mono text-gold-400 px-2 py-0.5 rounded bg-ink-800 border border-ink-border">
-              Candidate Case Board
+            <span className="font-bold text-base tracking-tight text-slate-900">HireFlow</span>
+            <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 uppercase tracking-wider">
+              Recruiter Workspace
             </span>
           </div>
         </div>
 
-        <nav className="hidden md:flex items-center gap-8 text-xs font-mono text-slate-400">
-          <button onClick={onStartOnboarding} className="hover:text-white transition-colors">
-            Role Studio
-          </button>
+        <nav className="flex items-center gap-4 text-xs">
           <button 
             onClick={onTrySampleCase} 
-            className="hover:text-gold-400 transition-colors text-slate-300 font-semibold"
+            className="px-3 py-1.5 font-medium text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors"
           >
-            Demo Case
+            Try 1 Demo Case
           </button>
-          <span className="text-slate-700">|</span>
           <button 
             onClick={onStartOnboarding}
-            className="px-4 py-2 rounded-xl bg-gold-500 hover:bg-gold-400 text-ink-950 font-bold text-xs shadow-md transition-colors"
+            className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold shadow-sm transition-colors flex items-center gap-1.5"
           >
-            Launch Board
+            <span>Configure Role & Launch</span>
+            <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </nav>
       </header>
 
-      {/* Main Full-Bleed Hero Section */}
-      <main className="flex-1 max-w-[1600px] mx-auto w-full px-6 sm:px-12 py-16 lg:py-24 flex flex-col lg:flex-row items-center justify-between gap-14">
+      {/* Hero Section */}
+      <main className="flex-1 max-w-6xl mx-auto px-6 py-16 sm:py-20 flex flex-col items-center text-center">
         
-        {/* Left Hero Command Column */}
-        <div className="max-w-2xl space-y-8">
-          
-          <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-ink-900 border border-ink-border text-xs font-mono text-gold-400">
-            <span className="w-2 h-2 rounded-full bg-gold-500 animate-pulse" />
-            <span>Recruiter Investigation Room</span>
-          </div>
-
-          <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-white leading-[1.12]">
-            Turn resumes into <span className="text-transparent bg-clip-text bg-gradient-to-r from-gold-400 via-yellow-200 to-gold-500">evidence-backed</span> hiring decisions.
-          </h1>
-
-          <p className="text-lg text-slate-300 leading-relaxed font-normal">
-            Upload a custom role and candidate files, cross-reference proof directly against requirements, and generate rigorous interview probe trees in seconds.
-          </p>
-
-          {/* Three Proof Chips */}
-          <div className="flex flex-wrap items-center gap-3 pt-2">
-            <div className="flex items-center gap-2.5 px-4 py-2 rounded-xl bg-ink-900 border border-ink-border text-xs font-mono text-slate-200">
-              <ShieldCheck className="w-4 h-4 text-verified-400" />
-              <span>Evidence Mapping</span>
-            </div>
-            <div className="flex items-center gap-2.5 px-4 py-2 rounded-xl bg-ink-900 border border-ink-border text-xs font-mono text-slate-200">
-              <MessageSquare className="w-4 h-4 text-gold-400" />
-              <span>Interview Questions</span>
-            </div>
-            <div className="flex items-center gap-2.5 px-4 py-2 rounded-xl bg-ink-900 border border-ink-border text-xs font-mono text-slate-200">
-              <FileText className="w-4 h-4 text-slate-400" />
-              <span>Audit Trail</span>
-            </div>
-          </div>
-
-          {/* Action CTAs */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 pt-4">
-            <button
-              onClick={onStartOnboarding}
-              className="px-8 py-4 rounded-xl bg-gold-500 hover:bg-gold-400 text-ink-950 font-extrabold text-sm shadow-xl transition-all flex items-center justify-center gap-2.5"
-            >
-              <span>Upload Job Description</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-
-            <button
-              onClick={onTrySampleCase}
-              className="px-7 py-4 rounded-xl bg-ink-850 hover:bg-ink-800 text-slate-200 font-semibold text-sm border border-ink-border hover:border-slate-600 transition-colors flex items-center justify-center gap-2"
-            >
-              <span>Try 1 Demo Case</span>
-            </button>
-          </div>
-
-          <p className="text-xs text-slate-400 pt-2 leading-relaxed">
-            Eliminate buzzword bluffing. Built for technical leads and hiring panels to audit real source artifacts rather than generic CV summaries.
-          </p>
-
+        {/* Subtle Pill */}
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-semibold mb-6 shadow-sm">
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>Evidence-Based Candidate Screening for Modern Teams</span>
         </div>
 
-        {/* Right Live Preview Panel: Luxury Dossier Preview */}
-        <div className="w-full max-w-xl">
-          <div className="dossier-card rounded-3xl p-7 border-2 border-gold-border/70 shadow-2xl relative bg-gradient-to-b from-ink-850 to-ink-900 overflow-hidden">
-            
-            {/* Top Case Label */}
-            <div className="flex items-center justify-between border-b border-ink-border pb-4 mb-5 font-mono text-xs">
-              <div className="flex items-center gap-2 text-slate-400">
-                <FolderLock className="w-4 h-4 text-gold-500" />
-                <span className="text-white font-semibold">DOSSIER #2026-AR</span>
-              </div>
-              <span className="px-2.5 py-1 rounded bg-verified-subtle text-verified-400 border border-verified-border font-semibold text-[11px]">
-                Strong fit
-              </span>
+        {/* High-Contrast Clear Headline */}
+        <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-900 tracking-tight max-w-3xl leading-tight">
+          Turn raw resumes into grounded hiring decisions.
+        </h1>
+
+        <p className="mt-4 text-base text-slate-600 max-w-2xl leading-relaxed">
+          Upload custom job descriptions and candidate resumes. Automatically cross-reference qualifications against real proof, uncover verification gaps, and generate structured technical interview kits.
+        </p>
+
+        {/* CTA Buttons */}
+        <div className="mt-8 flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+          <button
+            onClick={onStartOnboarding}
+            className="w-full sm:w-auto px-6 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm shadow-sm hover:shadow transition-all flex items-center justify-center gap-2"
+          >
+            <span>Open Role Blueprint Studio</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={onTrySampleCase}
+            className="w-full sm:w-auto px-6 py-3 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-sm shadow-sm transition-all"
+          >
+            Explore 1 Demo Candidate File
+          </button>
+        </div>
+
+        {/* Feature Cards Grid (Ashby Style) */}
+        <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 w-full text-left">
+          
+          <div className="p-6 bg-white rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <div className="w-10 h-10 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
+              <CheckCircle2 className="w-5 h-5" />
             </div>
-
-            {/* Candidate Header */}
-            <div className="flex items-start justify-between gap-4 mb-5">
-              <div>
-                <h3 className="font-extrabold text-xl text-white">Alex Rivera</h3>
-                <p className="text-xs text-slate-400 mt-1">Principal Systems Architect • 8y Experience</p>
-              </div>
-              <div className="text-right">
-                <div className="text-3xl font-extrabold font-mono text-verified-400">94%</div>
-                <div className="text-[10px] text-slate-400 uppercase tracking-wider font-mono">Role Fit</div>
-              </div>
-            </div>
-
-            {/* Evidence Sample Mapping */}
-            <div className="space-y-2.5 mb-6">
-              <div className="text-[11px] font-mono text-gold-400 uppercase tracking-wider font-semibold">
-                Verified Proof Sample
-              </div>
-              
-              <div className="p-3.5 rounded-xl bg-ink-950 border border-ink-border text-xs space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-white">Raft Consensus Internals</span>
-                  <span className="text-[10px] font-mono text-verified-400 font-semibold flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    High • Verified
-                  </span>
-                </div>
-                <div className="text-[11px] text-slate-400 font-mono">
-                  Source: GitHub repo "raft-kv-engine" • Jepsen linearizable tests
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-xl bg-ink-950 border border-ink-border text-xs space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-white">Active-Active Disaster Recovery</span>
-                  <span className="text-[10px] font-mono text-caution-500 font-semibold flex items-center gap-1">
-                    <AlertTriangle className="w-3.5 h-3.5" />
-                    Needs validation
-                  </span>
-                </div>
-                <div className="text-[11px] text-slate-400 font-mono">
-                  Source: Resume work history only • Flagged for interview probe
-                </div>
-              </div>
-            </div>
-
-            {/* Interview Question Preview */}
-            <div className="p-4 rounded-xl bg-ink-950 border border-ink-border text-xs space-y-2">
-              <div className="flex items-center gap-2 text-gold-400 font-mono font-semibold text-[11px]">
-                <MessageSquare className="w-3.5 h-3.5 text-gold-500" />
-                <span>Generated Technical Probe [Deep dive]</span>
-              </div>
-              <p className="text-slate-200 text-xs italic leading-relaxed">
-                "Walk me through how you tuned Raft election timeouts to achieve 240ms failover without inducing split-vote storms."
-              </p>
-            </div>
-
-            {/* Bottom Inspect Action */}
-            <div className="mt-6 pt-4 border-t border-ink-border flex items-center justify-between text-xs text-slate-400">
-              <span>Proof line: 2 systems, 1 GitHub repo, 1 paper</span>
-              <button 
-                onClick={onTrySampleCase}
-                className="text-gold-400 hover:text-gold-300 font-semibold font-mono flex items-center gap-1.5"
-              >
-                <span>Inspect in board</span>
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-
+            <h3 className="text-sm font-bold text-slate-900">Grounded Evidence Mapping</h3>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Every qualification is cited directly to a candidate's actual projects, code commits, or work history. No hallucinations, no generic scores.
+            </p>
           </div>
+
+          <div className="p-6 bg-white rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <div className="w-10 h-10 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+              <MessageSquare className="w-5 h-5" />
+            </div>
+            <h3 className="text-sm font-bold text-slate-900">Tailored Interview Probes</h3>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Generates deep-dive technical interview questions with clear "What to Look For" evaluation rubrics, complete with live speech-to-text notes.
+            </p>
+          </div>
+
+          <div className="p-6 bg-white rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <div className="w-10 h-10 rounded-lg bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600">
+              <Cpu className="w-5 h-5" />
+            </div>
+            <h3 className="text-sm font-bold text-slate-900">Dual Engine: Local + AI</h3>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Runs client-side with 100% data privacy using coordinate-sorted line reconstruction. Connect Google Gemini or OpenAI for optional deep LLM reasoning.
+            </p>
+          </div>
+
         </div>
 
       </main>
 
-      {/* Minimal Editorial Footer */}
-      <footer className="w-full border-t border-ink-border py-6 text-center text-xs font-mono text-slate-400">
-        HireFlow — Candidate Case Board • Turn resumes into evidence-backed hiring decisions
+      {/* Footer */}
+      <footer className="border-t border-slate-200 bg-white py-6 px-12 text-center text-xs text-slate-500">
+        HireFlow Recruiter Intelligence • Privacy-First Candidate Screening Platform
       </footer>
 
     </div>

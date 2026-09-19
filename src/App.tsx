@@ -10,6 +10,8 @@ import { CaseFileDetailModal } from './components/CaseFileDetailModal';
 import { InterviewKitModal } from './components/InterviewKitModal';
 import { CandidateCompareModal } from './components/CandidateCompareModal';
 import { UploadCandidateModal } from './components/UploadCandidateModal';
+import { AiSettingsModal } from './components/AiSettingsModal';
+import { AiService } from './services/aiApi';
 
 export function App() {
   // Top-level Navigation View State
@@ -18,7 +20,7 @@ export function App() {
   // Role Configuration (Fully customizable)
   const [role, setRole] = useState<RoleSetup>(DEFAULT_ROLE);
 
-  // Candidate Pool (Starts with 1 sample reference case, but can be cleared or populated dynamically)
+  // Candidate Pool (Starts with 1 sample reference case)
   const [candidates, setCandidates] = useState<CandidateCaseFile[]>(SAMPLE_CASE_FILES);
 
   // Review Mode
@@ -34,6 +36,8 @@ export function App() {
   const [interviewKitCandidate, setInterviewKitCandidate] = useState<CandidateCaseFile | null>(null);
   const [compareCandidates, setCompareCandidates] = useState<CandidateCaseFile[]>([]);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isAiSettingsOpen, setIsAiSettingsOpen] = useState(false);
+  const [isAiEvaluating, setIsAiEvaluating] = useState(false);
 
   // Handlers for Onboarding
   const handleStartOnboarding = () => {
@@ -69,7 +73,6 @@ export function App() {
       setCandidates(uploadedCandidates);
       setSelectedCandidateId(uploadedCandidates[0].id);
     } else {
-      // If no files uploaded during wizard, start with an empty board ready for upload
       setCandidates([]);
       setSelectedCandidateId('');
     }
@@ -103,7 +106,6 @@ export function App() {
       })
     );
 
-    // Also update modal instance if currently open
     if (detailModalCandidate && detailModalCandidate.id === candidateId) {
       setDetailModalCandidate(prev => prev ? {
         ...prev,
@@ -177,8 +179,57 @@ export function App() {
     );
   };
 
+  // Deep AI Re-evaluation via live Gemini/OpenAI API
+  const handleReevaluateWithAi = async (candidate: CandidateCaseFile) => {
+    if (!AiService.isConfigured()) {
+      setIsAiSettingsOpen(true);
+      return;
+    }
+
+    setIsAiEvaluating(true);
+    try {
+      const resumeContent = [
+        candidate.resumeSummary,
+        candidate.proofLine,
+        candidate.experiences.map(e => `${e.company} ${e.role} ${e.highlights.join(' ')}`).join(' '),
+        candidate.projects?.map(p => `${p.name} ${p.description}`).join(' ') || ''
+      ].join('\n\n');
+
+      const result = await AiService.evaluateWithLLM(resumeContent, role);
+
+      setCandidates(prev =>
+        prev.map(c => {
+          if (c.id === candidate.id) {
+            return {
+              ...c,
+              matchScore: result.matchScore,
+              fitBadge: result.fitBadge,
+              evidenceMap: result.evidenceMap.length > 0 ? result.evidenceMap : c.evidenceMap,
+              interviewQuestions: result.interviewQuestions.length > 0 ? result.interviewQuestions : c.interviewQuestions,
+              riskFlags: result.riskFlags.length > 0 ? result.riskFlags : c.riskFlags,
+              auditTrail: [
+                {
+                  id: `at-ai-${Date.now()}`,
+                  action: 'Deep AI LLM Evaluation Completed',
+                  timestamp: 'Just now',
+                  note: `Live analysis completed via ${AiService.getConfig().provider.toUpperCase()} (${AiService.getConfig().model}).`
+                },
+                ...c.auditTrail
+              ]
+            };
+          }
+          return c;
+        })
+      );
+    } catch (e: any) {
+      alert(`AI Evaluation error: ${e.message}`);
+    } finally {
+      setIsAiEvaluating(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-case-bg text-slate-200">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
       
       {/* 1. Opening Landing Page */}
       {view === 'landing' && (
@@ -188,7 +239,7 @@ export function App() {
         />
       )}
 
-      {/* 2. Onboarding Wizard */}
+      {/* 2. Full-Screen Role Blueprint Studio */}
       {view === 'onboarding' && (
         <OnboardingWizard
           initialRole={role}
@@ -197,7 +248,7 @@ export function App() {
         />
       )}
 
-      {/* 3. Main 3-Column Case Board Dashboard */}
+      {/* 3. Main 3-Column Human Recruiter Workspace Dashboard */}
       {view === 'dashboard' && (
         <CaseBoardDashboard
           role={role}
@@ -209,6 +260,7 @@ export function App() {
           onOpenInterviewKit={c => setInterviewKitCandidate(c)}
           onOpenOnboarding={() => setView('onboarding')}
           onOpenUpload={() => setIsUploadModalOpen(true)}
+          onOpenAiSettings={() => setIsAiSettingsOpen(true)}
           onLoadSingleDemoCase={handleLoadSingleDemoCase}
           onClearBoard={handleClearBoard}
           onSetReviewMode={setReviewMode}
@@ -216,10 +268,12 @@ export function App() {
           onUpdateStatus={handleUpdateStatus}
           onOpenCompare={comp => setCompareCandidates(comp)}
           onBackToLanding={() => setView('landing')}
+          onReevaluateWithAi={handleReevaluateWithAi}
+          isAiEvaluating={isAiEvaluating}
         />
       )}
 
-      {/* MODAL 1: Candidate Case File Full Detail Modal */}
+      {/* MODAL 1: Candidate Executive Dossier Modal */}
       {detailModalCandidate && (
         <CaseFileDetailModal
           candidate={detailModalCandidate}
@@ -255,7 +309,7 @@ export function App() {
         />
       )}
 
-      {/* MODAL 4: Quick Candidate Upload Modal */}
+      {/* MODAL 4: Quick Candidate Ingest Modal */}
       {isUploadModalOpen && (
         <UploadCandidateModal
           role={role}
@@ -263,6 +317,13 @@ export function App() {
           onCandidatesUploaded={handleCandidatesUploaded}
         />
       )}
+
+      {/* MODAL 5: AI Engine & API Keys Settings Modal */}
+      <AiSettingsModal
+        isOpen={isAiSettingsOpen}
+        onClose={() => setIsAiSettingsOpen(false)}
+        onConfigSaved={() => {}}
+      />
 
     </div>
   );

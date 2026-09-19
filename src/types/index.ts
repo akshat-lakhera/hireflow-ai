@@ -1,6 +1,11 @@
 export type ReviewMode = 'recruiter' | 'interviewer' | 'team_review';
 
-export type CandidateFitBadge = 'Strong fit' | 'Needs validation' | 'High risk';
+export type CandidateFitBadge = 
+  | 'Strong fit' 
+  | 'Needs validation' 
+  | 'High risk' 
+  | 'Moderate fit' 
+  | 'Potential gap';
 
 export type EvidenceConfidence = 'High' | 'Medium' | 'Low';
 
@@ -32,7 +37,7 @@ export interface InterviewKitQuestion {
 export interface RiskFlag {
   id: string;
   label: string;
-  severity: 'critical' | 'moderate' | 'low';
+  severity: 'critical' | 'moderate' | 'low' | 'high' | 'medium';
   details: string;
 }
 
@@ -50,6 +55,14 @@ export interface AuditTrailEntry {
   note: string;
 }
 
+export interface CandidateProject {
+  name: string;
+  description: string;
+  technologies?: string;
+  highlights?: string[];
+  link?: string;
+}
+
 export interface CandidateCaseFile {
   id: string;
   initials: string;
@@ -59,16 +72,25 @@ export interface CandidateCaseFile {
   location: string;
   matchScore: number; // 0-100
   fitBadge: CandidateFitBadge;
-  matchedSkills: string[]; // 3 key matched
-  missingSkills: string[]; // 2 missing
-  proofLine: string; // e.g. "2 projects, 1 GitHub repo, 1 portfolio"
-  reviewStatus: 'Under Review' | 'Interview Ready' | 'Needs Validation' | 'Decision Pending';
+  matchedSkills: string[]; // key matched
+  missingSkills: string[]; // missing / gaps
+  proofLine: string; // e.g. "3 projects, 1 GitHub repo, 1 portfolio"
+  reviewStatus: 
+    | 'Under Review' 
+    | 'Interview Ready' 
+    | 'Needs Validation' 
+    | 'Decision Pending'
+    | 'Needs Review'
+    | 'Passed Screen'
+    | 'Offer Extended'
+    | 'Rejected'
+    | 'Archived';
   
   // Detailed Case File
   resumeSummary: string;
   education: { degree: string; school: string; year: string }[];
   experiences: { company: string; role: string; duration: string; highlights: string[] }[];
-  projects: { name: string; description: string; link?: string }[];
+  projects: CandidateProject[];
   
   // Intelligence & Mapping
   evidenceMap: EvidenceItem[];
@@ -80,7 +102,7 @@ export interface CandidateCaseFile {
 
 export interface RoleSetup {
   title: string;
-  seniority: 'Junior' | 'Mid' | 'Senior' | 'Staff/Principal' | 'Lead';
+  seniority: 'Junior' | 'Mid' | 'Senior' | 'Staff/Principal' | 'Lead' | 'Director/VP' | string;
   teamType: string;
   mustHaveSkills: string[];
   niceToHaveSkills: string[];
@@ -98,54 +120,6 @@ export interface RequirementMatch {
 
 export interface SkillGap {
   skill: string;
-  category: string;
-  priority: 'high' | 'medium' | 'low';
-  learningRoadmap?: string[];
-}
-
-export interface InterviewQuestion {
-  id: string;
-  text: string;
-  rationale: string;
-  targetSkill: string;
-  suggestedFollowUps?: string[];
-  candidateResponse?: string;
-  aiScore?: number;
-}
-
-export interface CandidateScorecard {
-  overallScore: number;
-  competencyScores: { competency: string; score: number; notes: string }[];
-  strengths: string[];
-  growthAreas: string[];
-  recommendation: 'STRONG_HIRE' | 'HIRE' | 'LEAN_HIRE' | 'LEAN_NO_HIRE' | 'NO_HIRE';
-  auditTrailNotes?: string[];
-}
-
-export interface Candidate {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  matchScore: number;
-  grouping: string;
-  matchedRequirements: RequirementMatch[];
-  skillGaps: SkillGap[];
-  interviewQuestions: InterviewQuestion[];
-  scorecard: CandidateScorecard;
-  resumeText: string;
-  experienceYears?: number;
-  workExperience?: any[];
-  education?: any[];
-  skills?: string[];
-}
-
-export interface JobDescription {
-  id: string;
-  title: string;
-  department: string;
-  seniority: string;
-  requirements: string[];
-  niceToHave: string[];
-  fullText: string;
+  type: 'hard' | 'soft' | 'domain';
+  suggestedAction: string;
 }
