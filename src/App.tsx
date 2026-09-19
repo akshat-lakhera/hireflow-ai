@@ -12,13 +12,16 @@ import { InterviewKitModal } from './components/InterviewKitModal';
 import { CandidateCompareModal } from './components/CandidateCompareModal';
 import { UploadCandidateModal } from './components/UploadCandidateModal';
 import { AiSettingsModal } from './components/AiSettingsModal';
+import { DatabaseSettingsModal } from './components/DatabaseSettingsModal';
 import { AiService } from './services/aiApi';
+import { DatabaseService } from './services/databaseService';
 
 interface ToastNotification {
   id: string;
   type: 'success' | 'error' | 'info';
   message: string;
 }
+
 
 export function App() {
   // Top-level Navigation View State (supports 404 fallback)
@@ -44,6 +47,7 @@ export function App() {
   const [compareCandidates, setCompareCandidates] = useState<CandidateCaseFile[]>([]);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isAiSettingsOpen, setIsAiSettingsOpen] = useState(false);
+  const [isDatabaseSettingsOpen, setIsDatabaseSettingsOpen] = useState(false);
   const [isAiEvaluating, setIsAiEvaluating] = useState(false);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
 
@@ -54,6 +58,21 @@ export function App() {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 3500);
   };
+
+  // Load candidates from local IndexedDB vector database on startup
+  useEffect(() => {
+    DatabaseService.getAllCandidates()
+      .then(loaded => {
+        if (loaded && loaded.length > 0) {
+          setCandidates(loaded);
+          setSelectedCandidateId(loaded[0].id);
+        } else {
+          // Seed initial benchmark candidate cases into local database with 384-dim vectors
+          DatabaseService.saveCandidates(SAMPLE_CASE_FILES).catch(e => console.warn('DB seed notice:', e));
+        }
+      })
+      .catch(err => console.warn('IndexedDB startup notice:', err));
+  }, []);
 
   // Item 4: Dynamic Page Title
   useEffect(() => {
@@ -78,15 +97,18 @@ export function App() {
     setRole(DEFAULT_ROLE);
     setCandidates([SINGLE_SAMPLE_CASE]);
     setSelectedCandidateId(SINGLE_SAMPLE_CASE.id);
+    DatabaseService.saveCandidate(SINGLE_SAMPLE_CASE).catch(e => console.warn('DB save notice:', e));
     setView('dashboard');
   };
 
   const handleLoadSingleDemoCase = () => {
     setCandidates([SINGLE_SAMPLE_CASE]);
     setSelectedCandidateId(SINGLE_SAMPLE_CASE.id);
+    DatabaseService.saveCandidate(SINGLE_SAMPLE_CASE).catch(e => console.warn('DB save notice:', e));
   };
 
   const handleClearBoard = () => {
+    candidates.forEach(c => DatabaseService.deleteCandidate(c.id).catch(e => console.warn('DB delete notice:', e)));
     setCandidates([]);
     setSelectedCandidateId('');
   };
@@ -102,6 +124,7 @@ export function App() {
     if (uploadedCandidates.length > 0) {
       setCandidates(uploadedCandidates);
       setSelectedCandidateId(uploadedCandidates[0].id);
+      DatabaseService.saveCandidates(uploadedCandidates).catch(e => console.warn('DB save notice:', e));
     } else {
       setCandidates([]);
       setSelectedCandidateId('');
@@ -112,9 +135,16 @@ export function App() {
 
   // Quick Ingestion of candidates from dashboard
   const handleCandidatesUploaded = (newCandidates: CandidateCaseFile[]) => {
-    setCandidates(prev => [...newCandidates, ...prev]);
+    setCandidates(prev => {
+      const combined = [...newCandidates, ...prev];
+      const map = new Map<string, CandidateCaseFile>();
+      combined.forEach(c => map.set(c.id, c));
+      return Array.from(map.values()).sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
+    });
     setSelectedCandidateId(newCandidates[0]?.id || selectedCandidateId);
+    DatabaseService.saveCandidates(newCandidates).catch(e => console.warn('DB save notice:', e));
   };
+
 
   // Candidate Actions: Add Note
   const handleAddNote = (candidateId: string, noteText: string) => {
@@ -127,14 +157,17 @@ export function App() {
             text: noteText,
             timestamp: 'Just now'
           };
-          return {
+          const updated = {
             ...c,
             teamNotes: [newNote, ...c.teamNotes]
           };
+          DatabaseService.saveCandidate(updated).catch(e => console.warn('DB save notice:', e));
+          return updated;
         }
         return c;
       })
     );
+
 
     if (detailModalCandidate && detailModalCandidate.id === candidateId) {
       setDetailModalCandidate(prev => prev ? {
@@ -164,16 +197,19 @@ export function App() {
             timestamp: 'Just now',
             note: `Status modified by active reviewer (${reviewMode}).`
           };
-          return {
+          const updated = {
             ...c,
             reviewStatus: status,
             auditTrail: [auditEntry, ...c.auditTrail]
           };
+          DatabaseService.saveCandidate(updated).catch(e => console.warn('DB save notice:', e));
+          return updated;
         }
         return c;
       })
     );
     showToast(`Status updated to "${status}"`, 'info');
+
 
     if (detailModalCandidate && detailModalCandidate.id === candidateId) {
       setDetailModalCandidate(prev => prev ? { ...prev, reviewStatus: status } : null);
@@ -293,6 +329,7 @@ export function App() {
           onOpenOnboarding={() => setView('onboarding')}
           onOpenUpload={() => setIsUploadModalOpen(true)}
           onOpenAiSettings={() => setIsAiSettingsOpen(true)}
+          onOpenDatabaseSettings={() => setIsDatabaseSettingsOpen(true)}
           onLoadSingleDemoCase={handleLoadSingleDemoCase}
           onClearBoard={handleClearBoard}
           onSetReviewMode={setReviewMode}
@@ -378,6 +415,22 @@ export function App() {
         onClose={() => setIsAiSettingsOpen(false)}
         onConfigSaved={() => showToast('AI Settings updated securely', 'success')}
       />
+
+      {/* MODAL 6: Database & Vector Storage Settings Modal */}
+      {isDatabaseSettingsOpen && (
+        <DatabaseSettingsModal
+          candidates={candidates}
+          onClose={() => setIsDatabaseSettingsOpen(false)}
+          onCandidatesUpdated={(updated) => {
+            setCandidates(updated);
+            if (updated.length > 0) {
+              setSelectedCandidateId(updated[0].id);
+            }
+            showToast(`Loaded ${updated.length} candidate(s) from database`, 'success');
+          }}
+        />
+      )}
+
 
       {/* Global Floating Toast Notifications (Item 14 & 15: Error & Success Messages) */}
       <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none max-w-sm">

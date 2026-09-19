@@ -1,4 +1,6 @@
 import * as pdfjsLib from 'pdfjs-dist';
+import { ParseTelemetryStep, TelemetryCallback } from '../types';
+import { VectorEmbeddingService } from './vectorEmbeddingService';
 
 // Configure worker for pdfjs-dist
 if (typeof window !== 'undefined') {
@@ -46,32 +48,83 @@ export interface StructuredResumeData {
   projects: ParsedProject[];
   experiences: ParsedExperience[];
   education: ParsedEducation[];
+  embedding?: number[]; // 384-dimensional vector embedding
 }
 
 /**
- * Robust, coordinate-sorted text extraction from PDF ArrayBuffer
+ * Safely dispatches telemetry across asynchronous rendering cycles
+ * Decouples execution to prevent UI thread blocking and React setState race conditions
  */
-export async function extractTextFromPDF(file: File): Promise<StructuredResumeData> {
+async function safeDispatchTelemetry(
+  callback: TelemetryCallback | undefined,
+  step: ParseTelemetryStep
+): Promise<void> {
+  if (!callback) return;
+
+  // Yield to the browser's macro-task queue. This guarantees that:
+  // 1. Any active React render cycle finishes cleanly before state is updated.
+  // 2. The browser UI thread is not blocked by PDF.js text decompression.
+  await new Promise<void>((resolve) => {
+    setTimeout(() => {
+      try {
+        const res = callback(step);
+        if (res && typeof (res as any).then === 'function') {
+          (res as Promise<void>).catch((err) => console.warn('Async telemetry handler error:', err));
+        }
+      } catch (err) {
+        console.warn('Telemetry callback error:', err);
+      }
+      resolve();
+    }, 0);
+  });
+
+  // Yield one animation frame to ensure 60fps responsiveness during intense parsing
+  await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
+}
+
+/**
+ * Multi-Pass Agentic PDF Extraction Engine
+ * Pass 1: Visual Geometry & Layout Reconstruction (coordinate sorted, non-blocking)
+ * Pass 2: Structured Entity Synthesis (skills, projects, work history, links)
+ * Pass 3: 384-Dimensional Semantic Vector Hypersphere Projection
+ * Pass 4: Persistence Readiness
+ */
+export async function extractTextFromPDF(
+  file: File,
+  onTelemetry?: TelemetryCallback
+): Promise<StructuredResumeData> {
   const arrayBuffer = await file.arrayBuffer();
-  
+
+  // --- PASS 1: Visual Geometry & Layout Reconstruction ---
+  await safeDispatchTelemetry(onTelemetry, {
+    step: 1,
+    title: 'Parsing Visual Geometry & Text Streams',
+    detail: `Decompressing PDF coordinates for ${file.name}...`,
+    progress: 15,
+    status: 'in_progress',
+    timestamp: Date.now()
+  });
+
+  let allLines: string[] = [];
+  let rawText = '';
+
   try {
-    const loadingTask = pdfjsLib.getDocument({ 
+    const loadingTask = pdfjsLib.getDocument({
       data: new Uint8Array(arrayBuffer),
       useWorkerFetch: false,
       isEvalSupported: false,
       useSystemFonts: true
     });
-    
+
     const pdfDoc = await loadingTask.promise;
-    const allLines: string[] = [];
 
     for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
       const page = await pdfDoc.getPage(pageNum);
       const content = await page.getTextContent();
-      
+
       // Sort items by Y (descending: top to bottom) and X (ascending: left to right)
       const items = (content.items as any[])
-        .filter(it => it && typeof it.str === 'string' && it.str.trim().length > 0)
+        .filter((it) => it && typeof it.str === 'string' && it.str.trim().length > 0)
         .sort((a, b) => {
           const yDiff = b.transform[5] - a.transform[5];
           if (Math.abs(yDiff) > 2.5) {
@@ -102,20 +155,102 @@ export async function extractTextFromPDF(file: File): Promise<StructuredResumeDa
       if (currentLine.trim()) {
         allLines.push(currentLine.trim());
       }
+
+      // Safe asynchronous yield between pages to avoid UI thread freeze
+      await new Promise((r) => setTimeout(r, 16));
     }
 
     if (allLines.length > 0) {
-      const rawText = allLines.join('\n');
-      return parseStructuredResume(rawText, allLines, file.name);
+      rawText = allLines.join('\n');
     }
   } catch (pdfErr) {
     console.warn('PDF.js worker or render error, falling back to direct binary stream parser:', pdfErr);
   }
 
-  // Pure binary fallback: decode strings directly from PDF stream objects
-  const fallbackLines = extractTextStreamsFromPDFBuffer(new Uint8Array(arrayBuffer));
-  const rawText = fallbackLines.join('\n');
-  return parseStructuredResume(rawText, fallbackLines, file.name);
+  // Pure binary stream fallback if PDF.js was unable to parse
+  if (allLines.length === 0) {
+    allLines = extractTextStreamsFromPDFBuffer(new Uint8Array(arrayBuffer));
+    rawText = allLines.join('\n');
+  }
+
+  await safeDispatchTelemetry(onTelemetry, {
+    step: 1,
+    title: 'Visual Geometry Decoded',
+    detail: `Extracted ${allLines.length} coordinate-aligned lines across pages.`,
+    progress: 40,
+    status: 'completed',
+    timestamp: Date.now()
+  });
+
+  // --- PASS 2: Entity Synthesis & Domain Extraction ---
+  await safeDispatchTelemetry(onTelemetry, {
+    step: 2,
+    title: 'Synthesizing Resume Entities',
+    detail: 'Extracting verified projects, technologies, credentials, and work history...',
+    progress: 55,
+    status: 'in_progress',
+    timestamp: Date.now()
+  });
+
+  // Yield event loop for React UI rendering
+  await new Promise((r) => setTimeout(r, 20));
+
+  const parsed = parseStructuredResume(rawText, allLines, file.name);
+
+  await safeDispatchTelemetry(onTelemetry, {
+    step: 2,
+    title: 'Entities Synthesized',
+    detail: `Identified: ${parsed.name} | ${parsed.skills.length} skills | ${parsed.projects.length} projects | ${parsed.experiences.length} positions.`,
+    progress: 75,
+    status: 'completed',
+    timestamp: Date.now()
+  });
+
+  // --- PASS 3: 384-Dimensional Semantic Vector Embedding Generation ---
+  await safeDispatchTelemetry(onTelemetry, {
+    step: 3,
+    title: 'Generating 384-Dim Vector Embeddings',
+    detail: 'Projecting candidate attributes onto 384-dimensional hypersphere with L2 normalization...',
+    progress: 85,
+    status: 'in_progress',
+    timestamp: Date.now()
+  });
+
+  // Yield event loop
+  await new Promise((r) => setTimeout(r, 16));
+
+  const embeddingText = [
+    parsed.name,
+    parsed.headline,
+    parsed.summary,
+    parsed.skills.join(' '),
+    parsed.projects.map((p) => `${p.name} ${p.technologies} ${p.description}`).join(' '),
+    parsed.experiences.map((e) => `${e.company} ${e.role} ${e.highlights.join(' ')}`).join(' ')
+  ].join(' ');
+
+  const embedding = VectorEmbeddingService.generateEmbedding(embeddingText);
+  parsed.embedding = embedding;
+
+  await safeDispatchTelemetry(onTelemetry, {
+    step: 3,
+    title: '384-Dim Vector Generated',
+    detail: `Normalized unit vector (dim: ${embedding.length}) ready for cosine similarity and pgvector.`,
+    progress: 95,
+    status: 'completed',
+    timestamp: Date.now()
+  });
+
+  // --- PASS 4: Storage Ready ---
+  await safeDispatchTelemetry(onTelemetry, {
+    step: 4,
+    title: 'Ingestion Pipeline Complete',
+    detail: 'Candidate ready for IndexedDB vector storage and Supabase cloud sync.',
+    progress: 100,
+    status: 'completed',
+    timestamp: Date.now()
+  });
+
+  return parsed;
 }
 
 /**
@@ -131,7 +266,7 @@ function extractTextStreamsFromPDFBuffer(bytes: Uint8Array): string[] {
 
   while ((btMatch = btRegex.exec(binaryString)) !== null) {
     const textBlock = btMatch[1];
-    
+
     // Match literal strings: (Text here) Tj or [(Text1) -20 (Text2)] TJ
     const tjRegex = /\(((?:\\\(|\\\)|[^()])*)\)\s*(?:Tj|'|")/g;
     let tjMatch;
@@ -173,7 +308,7 @@ function extractTextStreamsFromPDFBuffer(bytes: Uint8Array): string[] {
 
   // Last resort: extract visible printable strings of length >= 4
   const printableMatches = binaryString.match(/[A-Za-z0-9\s.,;:_/@()\-+#&]{4,}/g) || [];
-  return printableMatches.map(s => s.trim()).filter(s => s.length > 5 && !s.startsWith('/'));
+  return printableMatches.map((s) => s.trim()).filter((s) => s.length > 5 && !s.startsWith('/'));
 }
 
 /**
@@ -184,17 +319,17 @@ export function parseStructuredResume(
   lines: string[],
   filename: string
 ): StructuredResumeData {
-  const cleanLines = lines.map(l => l.trim()).filter(Boolean);
+  const cleanLines = lines.map((l) => l.trim()).filter(Boolean);
 
   // 1. Candidate Name (Typically first line, or fallback to cleaned filename)
   let name = '';
   for (let i = 0; i < Math.min(4, cleanLines.length); i++) {
     const line = cleanLines[i];
     if (
-      line.length > 2 && 
-      line.length < 40 && 
-      !line.includes('@') && 
-      !line.includes('http') && 
+      line.length > 2 &&
+      line.length < 40 &&
+      !line.includes('@') &&
+      !line.includes('http') &&
       !/summary|objective|curriculum|resume|cv/i.test(line)
     ) {
       name = line;
@@ -211,12 +346,12 @@ export function parseStructuredResume(
     const line = cleanLines[i];
     if (
       line !== name &&
-      (line.includes('Engineer') || 
-       line.includes('Developer') || 
-       line.includes('Architect') || 
-       line.includes('Lead') ||
-       line.includes('Student') ||
-       line.includes('Specialist'))
+      (line.includes('Engineer') ||
+        line.includes('Developer') ||
+        line.includes('Architect') ||
+        line.includes('Lead') ||
+        line.includes('Student') ||
+        line.includes('Specialist'))
     ) {
       headline = line;
       break;
@@ -231,16 +366,26 @@ export function parseStructuredResume(
   const phone = phoneMatch ? phoneMatch[0] : '';
 
   const githubMatch = rawText.match(/github\.com\/([a-zA-Z0-9-_]+)|github:\s*([a-zA-Z0-9-_]+)/i);
-  const githubUrl = githubMatch ? (githubMatch[1] || githubMatch[2]) : undefined;
+  const githubUrl = githubMatch ? githubMatch[1] || githubMatch[2] : undefined;
 
-  const portfolioMatch = rawText.match(/https?:\/\/[a-zA-Z0-9.-]+\.vercel\.app|[a-zA-Z0-9.-]+\.dev|[a-zA-Z0-9.-]+\.io|[a-zA-Z0-9.-]+\.com/i);
+  const portfolioMatch = rawText.match(
+    /https?:\/\/[a-zA-Z0-9.-]+\.vercel\.app|[a-zA-Z0-9.-]+\.dev|[a-zA-Z0-9.-]+\.io|[a-zA-Z0-9.-]+\.com/i
+  );
   const portfolioUrl = portfolioMatch ? portfolioMatch[0] : undefined;
 
   // Location detection
   let location = '';
-  const locationLine = cleanLines.find(l => l.includes('Bhopal') || l.includes('India') || l.includes('United States') || l.includes('Remote') || l.includes('CA') || l.includes('NY'));
+  const locationLine = cleanLines.find(
+    (l) =>
+      l.includes('Bhopal') ||
+      l.includes('India') ||
+      l.includes('United States') ||
+      l.includes('Remote') ||
+      l.includes('CA') ||
+      l.includes('NY')
+  );
   if (locationLine) {
-    const parts = locationLine.split('|').map(p => p.trim());
+    const parts = locationLine.split('|').map((p) => p.trim());
     location = parts[0] || 'Remote';
   }
 
@@ -269,7 +414,12 @@ export function parseStructuredResume(
       currentSection = 'PROJECTS';
       continue;
     }
-    if (upper.includes('WORK EXPERIENCE') || upper.includes('PROFESSIONAL EXPERIENCE') || upper.includes('EXPERIENCE') || upper.includes('EMPLOYMENT')) {
+    if (
+      upper.includes('WORK EXPERIENCE') ||
+      upper.includes('PROFESSIONAL EXPERIENCE') ||
+      upper.includes('EXPERIENCE') ||
+      upper.includes('EMPLOYMENT')
+    ) {
       currentSection = 'EXPERIENCE';
       continue;
     }
@@ -284,14 +434,17 @@ export function parseStructuredResume(
   }
 
   // 5. Parse Real Summary
-  const summary = sectionMap.SUMMARY.join(' ').trim() || 
-    cleanLines.slice(2, 6).join(' ').slice(0, 300);
+  const summary =
+    sectionMap.SUMMARY.join(' ').trim() || cleanLines.slice(2, 6).join(' ').slice(0, 300);
 
   // 6. Parse Real Skills from the Skills Section
   const extractedSkills: string[] = [];
   for (const line of sectionMap.SKILLS) {
-    const cleaned = line.replace(/^[A-Za-z\s&]+:\s*/, ''); // strip "Languages:", "Backend & Systems:", etc.
-    const items = cleaned.split(/[,|•·\n]/).map(s => s.trim().replace(/\(.*\)/, '').trim()).filter(Boolean);
+    const cleaned = line.replace(/^[A-Za-z\s&]+:\s*/, '');
+    const items = cleaned
+      .split(/[,|•·\n]/)
+      .map((s) => s.trim().replace(/\(.*\)/, '').trim())
+      .filter(Boolean);
     for (const item of items) {
       if (item.length > 1 && item.length < 35 && !extractedSkills.includes(item)) {
         extractedSkills.push(item);
@@ -304,14 +457,16 @@ export function parseStructuredResume(
   let currentProject: ParsedProject | null = null;
 
   for (const line of sectionMap.PROJECTS) {
-    // Project title line starts with a title followed by delimiter: e.g. "DevDash — Local-First..." or "MarketScout | Python..."
-    const isProjectHeader = /^[A-Za-z0-9][A-Za-z0-9\s]{1,35}\s*[-—–|]/.test(line) && !line.startsWith('•') && !line.startsWith('(');
-    
+    const isProjectHeader =
+      /^[A-Za-z0-9][A-Za-z0-9\s]{1,35}\s*[-—–|]/.test(line) &&
+      !line.startsWith('•') &&
+      !line.startsWith('(');
+
     if (isProjectHeader) {
       if (currentProject) {
         projects.push(currentProject);
       }
-      const parts = line.split(/[-—–|]/).map(p => p.trim());
+      const parts = line.split(/[-—–|]/).map((p) => p.trim());
       const pName = parts[0] || 'Project';
       const pTech = parts.slice(1).join(' · ');
       currentProject = {
@@ -326,7 +481,6 @@ export function parseStructuredResume(
       } else if (currentProject.highlights.length === 0) {
         currentProject.description = (currentProject.description + ' ' + line).trim();
       } else {
-        // Wrapped bullet continuation line: append to last highlight
         const lastIdx = currentProject.highlights.length - 1;
         currentProject.highlights[lastIdx] = (currentProject.highlights[lastIdx] + ' ' + line).trim();
       }
@@ -340,11 +494,11 @@ export function parseStructuredResume(
   const education: ParsedEducation[] = [];
   if (sectionMap.EDUCATION.length > 0) {
     const eduLines = sectionMap.EDUCATION;
-    let degree = eduLines[0] || 'Higher Education';
-    let school = eduLines[1] || '';
+    const degree = eduLines[0] || 'Higher Education';
+    const school = eduLines[1] || '';
     let year = '';
 
-    const yearMatch = (eduLines.join(' ')).match(/\b(20\d\d\s*[-–—]\s*(?:20\d\d|Present|\d\d))\b/i);
+    const yearMatch = eduLines.join(' ').match(/\b(20\d\d\s*[-–—]\s*(?:20\d\d|Present|\d\d))\b/i);
     if (yearMatch) {
       year = yearMatch[0];
     }

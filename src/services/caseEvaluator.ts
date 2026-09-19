@@ -296,7 +296,12 @@ export class CaseEvaluator {
           timestamp: 'Just now', 
           note: `Extracted ${data.projects.length} real projects and ${data.skills.length} skills against ${role.title}.` 
         }
-      ]
+      ],
+      embedding: data.embedding,
+      rawText: data.rawText,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
   }
 }
+

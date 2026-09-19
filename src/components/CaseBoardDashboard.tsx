@@ -19,7 +19,8 @@ import {
   ChevronLeft,
   ChevronRight,
   MessageSquare,
-  Bot
+  Bot,
+  Database
 } from 'lucide-react';
 import { AiService } from '../services/aiApi';
 import { RecruiterAgentCopilot } from './RecruiterAgentCopilot';
@@ -35,6 +36,7 @@ interface CaseBoardDashboardProps {
   onOpenOnboarding: () => void;
   onOpenUpload: () => void;
   onOpenAiSettings: () => void;
+  onOpenDatabaseSettings?: () => void;
   onLoadSingleDemoCase: () => void;
   onClearBoard: () => void;
   onSetReviewMode: (mode: ReviewMode) => void;
@@ -57,6 +59,8 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
   onOpenOnboarding,
   onOpenUpload,
   onOpenAiSettings,
+  onOpenDatabaseSettings,
+
   onLoadSingleDemoCase,
   onClearBoard,
   onSetReviewMode,
@@ -246,7 +250,7 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
           </button>
         </div>
 
-        {/* Center: AI Engine Status Pill */}
+        {/* Center: AI Engine & Vector Database Status Pills */}
         <div className="flex items-center gap-2">
           <button
             onClick={onOpenAiSettings}
@@ -263,7 +267,22 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
                 : '⚡ Local Engine (Add API Key)'}
             </span>
           </button>
+
+          {onOpenDatabaseSettings && (
+            <button
+              onClick={onOpenDatabaseSettings}
+              className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors shadow-2xs"
+              title="Database & Vector Storage (IndexedDB + Supabase pgvector 384-dim)"
+            >
+              <Database className="w-3.5 h-3.5 text-indigo-600" />
+              <span className="text-[11px] font-medium">PostgreSQL & Vector</span>
+              <span className="text-[10px] font-mono bg-indigo-50 text-indigo-700 px-1.5 py-0.2 rounded border border-indigo-100">
+                384-dim
+              </span>
+            </button>
+          )}
         </div>
+
 
         {/* Right: Actions & Panel Toggle */}
         <div className="flex items-center gap-2">

@@ -100,7 +100,42 @@ export interface CandidateCaseFile {
   riskFlags: RiskFlag[];
   teamNotes: TeamNote[];
   auditTrail: AuditTrailEntry[];
+
+  // 384-dimensional vector embedding for local & Supabase pgvector search
+  embedding?: number[];
+  rawText?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
+
+export type DatabaseMode = 'indexeddb_vector' | 'supabase_pgvector';
+
+export interface DatabaseConfig {
+  mode: DatabaseMode;
+  supabaseUrl: string;
+  supabaseAnonKey: string;
+  tableName: string;
+  autoSync: boolean;
+  lastSyncedAt?: string;
+}
+
+export interface DatabaseSyncResult {
+  success: boolean;
+  syncedCount: number;
+  message?: string;
+  error?: string;
+}
+
+export interface ParseTelemetryStep {
+  step: 1 | 2 | 3 | 4;
+  title: string;
+  detail: string;
+  progress: number;
+  status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  timestamp: number;
+}
+
+export type TelemetryCallback = (telemetry: ParseTelemetryStep) => void | Promise<void>;
 
 export interface RoleSetup {
   title: string;
@@ -125,3 +160,4 @@ export interface SkillGap {
   type: 'hard' | 'soft' | 'domain';
   suggestedAction: string;
 }
+

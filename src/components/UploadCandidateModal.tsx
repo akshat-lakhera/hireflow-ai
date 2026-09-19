@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CandidateCaseFile, RoleSetup } from '../types';
+import { CandidateCaseFile, RoleSetup, ParseTelemetryStep } from '../types';
 import { extractTextFromPDF, StructuredResumeData } from '../services/pdfParser';
 import { CaseEvaluator } from '../services/caseEvaluator';
 import { 
@@ -15,7 +15,10 @@ import {
   User,
   Mail,
   Phone,
-  Briefcase
+  Briefcase,
+  Layers,
+  Cpu,
+  Database
 } from 'lucide-react';
 
 interface UploadCandidateModalProps {
@@ -43,6 +46,8 @@ export const UploadCandidateModal: React.FC<UploadCandidateModalProps> = ({
   const [portfolioUrl, setPortfolioUrl] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [currentTelemetry, setCurrentTelemetry] = useState<ParseTelemetryStep | null>(null);
+  const [telemetryHistory, setTelemetryHistory] = useState<ParseTelemetryStep[]>([]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent) => {
     let droppedFiles: File[] = [];
@@ -57,10 +62,22 @@ export const UploadCandidateModal: React.FC<UploadCandidateModalProps> = ({
 
     setIsProcessing(true);
     setErrorMsg(null);
+    setTelemetryHistory([]);
 
     for (const file of droppedFiles) {
       try {
-        const parsed = await extractTextFromPDF(file);
+        const parsed = await extractTextFromPDF(file, (telemetry) => {
+          setCurrentTelemetry(telemetry);
+          setTelemetryHistory(prev => {
+            const idx = prev.findIndex(p => p.step === telemetry.step);
+            if (idx >= 0) {
+              const copy = [...prev];
+              copy[idx] = telemetry;
+              return copy;
+            }
+            return [...prev, telemetry];
+          });
+        });
         setFiles(prev => [...prev, { file, name: parsed.name, parsedData: parsed }]);
       } catch (err: any) {
         console.error('Extraction error:', err);
@@ -69,6 +86,7 @@ export const UploadCandidateModal: React.FC<UploadCandidateModalProps> = ({
     }
     setIsProcessing(false);
   };
+
 
   const handleRemoveFile = (idx: number) => {
     setFiles(prev => prev.filter((_, i) => i !== idx));
@@ -194,12 +212,80 @@ export const UploadCandidateModal: React.FC<UploadCandidateModalProps> = ({
                 </p>
               </label>
 
-              {isProcessing && (
-                <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center gap-3 text-xs text-indigo-900">
-                  <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin shrink-0" />
-                  <span>Parsing and reconstructing resume coordinates...</span>
+              {/* Live Agent Execution Telemetry Pipeline */}
+              {(isProcessing || telemetryHistory.length > 0) && (
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-indigo-600 animate-ping" />
+                      <span className="text-xs font-semibold text-slate-900">
+                        Multi-Pass Agentic Extraction Engine
+                      </span>
+                    </div>
+                    {currentTelemetry && (
+                      <span className="text-[11px] font-mono font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                        {currentTelemetry.progress}% Complete
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                    <div 
+                      className="bg-indigo-600 h-full rounded-full transition-all duration-300"
+                      style={{ width: `${currentTelemetry?.progress || 0}%` }}
+                    />
+                  </div>
+
+                  {/* Step Indicators */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                    {[
+                      { stepNum: 1, icon: Layers, label: 'Visual Geometry', desc: 'Layout & Coordinates' },
+                      { stepNum: 2, icon: Briefcase, label: 'Entity Synthesis', desc: 'Projects & Work History' },
+                      { stepNum: 3, icon: Cpu, label: '384-Dim Vector', desc: 'Hypersphere Projection' },
+                      { stepNum: 4, icon: Database, label: 'Storage Commit', desc: 'Local DB & pgvector' }
+                    ].map((s) => {
+                      const historyItem = telemetryHistory.find(h => h.step === s.stepNum);
+                      const isCurrent = currentTelemetry?.step === s.stepNum && isProcessing;
+                      const isDone = historyItem?.status === 'completed';
+
+                      return (
+                        <div 
+                          key={s.stepNum}
+                          className={`p-2.5 rounded-lg border text-xs flex items-center gap-2.5 transition-all ${
+                            isDone 
+                              ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900' 
+                              : isCurrent 
+                                ? 'bg-indigo-50 border-indigo-200 text-indigo-900' 
+                                : 'bg-white border-slate-200 text-slate-500'
+                          }`}
+                        >
+                          <div className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${
+                            isDone 
+                              ? 'bg-emerald-600 text-white' 
+                              : isCurrent 
+                                ? 'bg-indigo-600 text-white animate-pulse' 
+                                : 'bg-slate-100 text-slate-400'
+                          }`}>
+                            {isDone ? (
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                            ) : (
+                              <s.icon className="w-3.5 h-3.5" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="font-semibold truncate">{s.label}</div>
+                            <div className="text-[10px] text-slate-500 truncate">
+                              {historyItem?.detail || s.desc}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
+
 
               {/* Uploaded Files Live Preview */}
               {files.length > 0 && (

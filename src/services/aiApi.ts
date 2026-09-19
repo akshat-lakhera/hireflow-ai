@@ -1,4 +1,5 @@
 import { RoleSetup, EvidenceItem, InterviewKitQuestion, RiskFlag } from '../types';
+import { VectorEmbeddingService } from './vectorEmbeddingService';
 
 export interface AiConfig {
   provider: 'groq' | 'gemini' | 'openai';
@@ -499,15 +500,20 @@ Instructions:
   }
 
   private static localRagFallback(query: string, candidates: any[], role: RoleSetup): string {
-    const q = query.toLowerCase();
+    const q = query.toLowerCase().trim();
 
     if (candidates.length === 0) {
       return `There are currently no candidates in the pipeline for **${role.title}**. Please upload a resume PDF or load a demo case to begin querying candidate data.`;
     }
 
+    // Always sort candidates strictly by matchScore descending
+    const sorted = [...candidates].sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
+    const topCandidate = sorted[0];
+    const lowestCandidate = sorted[sorted.length - 1];
+
     // Intent 1: List candidates
     if (q.includes('list') || q.includes('who applied') || q.includes('all candidate') || q.includes('name of candidate')) {
-      const list = candidates.map(c => 
+      const list = sorted.map(c => 
         `• **${c.name}** — ${c.currentRole} | Match Score: **${c.matchScore}%** (${c.fitBadge}) | Status: *${c.reviewStatus}*`
       ).join('\n');
       return `### Candidates in Active Pipeline (${candidates.length})\n\n${list}\n\n*Click on any candidate card on the left to inspect their full executive dossier.*`;
@@ -515,30 +521,30 @@ Instructions:
 
     // Intent 2: Eligibility
     if (q.includes('eligible') || q.includes('qualified') || q.includes('pass') || q.includes('interview ready')) {
-      const eligible = candidates.filter(c => c.matchScore >= 75 || c.reviewStatus === 'Interview Ready');
+      const eligible = sorted.filter(c => (c.matchScore || 0) >= 75 || c.reviewStatus === 'Interview Ready');
       if (eligible.length === 0) {
-        return `No candidates currently meet the high-match eligibility threshold (≥75%) for **${role.title}**. Top candidate is **${candidates[0].name}** at ${candidates[0].matchScore}%.`;
+        return `No candidates currently meet the high-match eligibility threshold (≥75%) for **${role.title}**. The highest scoring candidate is **${topCandidate.name}** at ${topCandidate.matchScore}% (${topCandidate.fitBadge}).`;
       }
       const breakdown = eligible.map(c => 
-        `• **${c.name}** (**${c.matchScore}%** - ${c.fitBadge}): Verified evidence in ${c.matchedSkills.join(', ')}. Status: *${c.reviewStatus}*.`
-      ).join('\n');
-      return `### Eligible Candidates for ${role.title}\n\n${breakdown}\n\nThese candidates have confirmed evidence matching the core criteria.`;
+        `• **${c.name}** (**${c.matchScore}%** — ${c.fitBadge})\n  - Role: ${c.currentRole}\n  - Verified Skills: ${c.matchedSkills.join(', ')}\n  - Status: *${c.reviewStatus}*`
+      ).join('\n\n');
+      return `### Eligible Candidates for ${role.title} (${eligible.length}/${candidates.length})\n\n${breakdown}\n\n*These candidates meet or exceed the eligibility threshold for this role.*`;
     }
 
     // Intent 3: Risk Flags & Gaps
     if (q.includes('risk') || q.includes('gap') || q.includes('concern') || q.includes('missing')) {
-      const withRisks = candidates.filter(c => c.riskFlags && c.riskFlags.length > 0);
+      const withRisks = sorted.filter(c => c.riskFlags && c.riskFlags.length > 0);
       if (withRisks.length === 0) {
         return `No major risk flags have been detected across the active pipeline.`;
       }
       const riskSummary = withRisks.map(c => 
-        `• **${c.name}**: ${c.riskFlags.map((r: any) => `${r.label} — ${r.details}`).join('; ')}`
-      ).join('\n');
+        `• **${c.name}** (${c.matchScore}% - ${c.fitBadge}):\n  - ${c.riskFlags.map((r: any) => `${r.label}: ${r.details}`).join('\n  - ')}`
+      ).join('\n\n');
       return `### Identified Qualification Gaps & Risk Flags\n\n${riskSummary}`;
     }
 
     // Intent 4: Specific candidate lookup
-    const mentioned = candidates.find(c => q.includes(c.name.toLowerCase()) || q.includes(c.name.split(' ')[0].toLowerCase()));
+    const mentioned = sorted.find(c => q.includes(c.name.toLowerCase()) || q.includes(c.name.split(' ')[0].toLowerCase()));
     if (mentioned) {
       const projs = (mentioned.projects || []).map((p: any) => `**${p.name}** (${p.technologies || 'N/A'}): ${p.description}`).join('\n  - ');
       return `### Dossier Summary: ${mentioned.name}\n\n` +
@@ -551,16 +557,45 @@ Instructions:
         `• **Documented Projects**:\n  - ${projs || 'No projects extracted.'}`;
     }
 
-    // Intent 5: Generic query summary
+    // Intent 5: 384-Dimensional Semantic Vector Cosine Similarity Search
+    try {
+      const queryVec = VectorEmbeddingService.generateEmbedding(query);
+      const scored = sorted.map(c => {
+        const cVec = (c.embedding && Array.isArray(c.embedding) && c.embedding.length === 384)
+          ? c.embedding
+          : VectorEmbeddingService.generateEmbedding(`${c.name} ${c.currentRole} ${c.matchedSkills.join(' ')} ${c.resumeSummary}`);
+        const similarity = VectorEmbeddingService.cosineSimilarity(queryVec, cVec);
+        return { candidate: c, similarity };
+      }).sort((a, b) => b.similarity - a.similarity);
+
+      const topMatches = scored.filter(s => s.similarity >= 0.18);
+      if (topMatches.length > 0) {
+        const results = topMatches.map(m => 
+          `• **${m.candidate.name}** (${m.candidate.currentRole}) — Semantic Relevance: **${Math.round(m.similarity * 100)}%**\n  - Match Score: ${m.candidate.matchScore}% (${m.candidate.fitBadge})\n  - Verified Skills: ${m.candidate.matchedSkills.join(', ')}\n  - Documented Evidence: ${m.candidate.proofLine || m.candidate.resumeSummary.slice(0, 140) + '...'}`
+        ).join('\n\n');
+        return `### 384-Dimensional Vector Similarity Matches\n\nRanked by cosine similarity against local candidate dossiers:\n\n${results}\n\n*Click on any candidate card to review their complete evidence map.*`;
+      }
+    } catch (vErr) {
+      console.warn('Local vector search fallback notice:', vErr);
+    }
+
+    // Intent 6: Generic pipeline summary
+    const highRiskCandidates = sorted.filter(c => (c.matchScore || 0) < 60);
+
     return `### Pipeline Intelligence for ${role.title}\n\n` +
-      `We have **${candidates.length} candidate${candidates.length === 1 ? '' : 's'}** evaluated against your role blueprint.\n\n` +
-      `• **Top Fit**: ${candidates[0].name} (${candidates[0].matchScore}% - ${candidates[0].fitBadge})\n` +
+      `We have **${candidates.length} candidate${candidates.length === 1 ? '' : 's'}** evaluated against your role blueprint:\n\n` +
+      `• **Top Fit**: **${topCandidate.name}** (**${topCandidate.matchScore}%** — ${topCandidate.fitBadge})\n` +
+      (highRiskCandidates.length > 0 
+        ? `• **High Risk / Under-qualified**: ${highRiskCandidates.map(c => `**${c.name}** (${c.matchScore}%)`).join(', ')}\n` 
+        : '') +
       `• **Must-Have Requirements**: ${role.mustHaveSkills.join(', ')}\n\n` +
       `You can ask me questions like:\n` +
       `- *"List all candidates who applied"*\n` +
       `- *"Which candidates are eligible for an interview?"*\n` +
       `- *"Who has project experience in consensus or Kafka?"*\n` +
-      `- *"What are the risks with ${candidates[0].name}?"*`;
+      `- *"What are the risks with ${lowestCandidate.name}?"*`;
   }
 }
+
+
 
