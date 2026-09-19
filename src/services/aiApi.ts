@@ -100,10 +100,11 @@ export class AiService {
       if (rawConfig.isObfuscated && key) {
         key = deobfuscateApiKey(key);
       }
+      const provider = rawConfig.provider || 'groq';
       return {
-        provider: rawConfig.provider || 'groq',
+        provider,
         apiKey: key,
-        model: rawConfig.model || 'llama-3.3-70b-versatile',
+        model: rawConfig.model || (provider === 'groq' ? 'llama-3.1-8b-instant' : provider === 'gemini' ? 'gemini-1.5-flash' : 'gpt-4o-mini'),
         sessionOnly: isSession || Boolean(rawConfig.sessionOnly)
       };
     }
@@ -114,7 +115,7 @@ export class AiService {
       return {
         provider: 'groq',
         apiKey: envGroqKey,
-        model: 'llama-3.3-70b-versatile',
+        model: 'llama-3.1-8b-instant',
         sessionOnly: false
       };
     }
@@ -122,7 +123,7 @@ export class AiService {
     return {
       provider: 'groq',
       apiKey: '',
-      model: 'llama-3.3-70b-versatile',
+      model: 'llama-3.1-8b-instant',
       sessionOnly: false
     };
   }
@@ -173,50 +174,167 @@ export class AiService {
   }
 
   /**
+   * Helper to query accessible models for a Groq API key
+   */
+  public static async getAvailableGroqModels(apiKey: string): Promise<string[]> {
+    if (!apiKey || !apiKey.trim()) return [];
+    try {
+      const res = await fetch('https://api.groq.com/openai/v1/models', {
+        headers: { Authorization: `Bearer ${apiKey.trim()}` }
+      });
+      if (res.ok) {
+        const json = await res.json();
+        return (json.data || []).map((m: any) => m.id);
+      }
+    } catch {
+      // ignore
+    }
+    return [];
+  }
+
+  /**
    * Test the provided API key with a live ping call
    */
-  public static async testConnection(config: AiConfig): Promise<{ success: boolean; message: string }> {
+  public static async testConnection(config: AiConfig): Promise<{
+    success: boolean;
+    message: string;
+    autoSelectedModel?: string;
+    availableModels?: string[];
+  }> {
     if (!config.apiKey.trim()) {
       return { success: false, message: 'Please enter a valid API key.' };
     }
 
-
     try {
       if (config.provider === 'groq') {
-        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${config.apiKey.trim()}`
-          },
-          body: JSON.stringify({
-            model: config.model || 'llama-3.3-70b-versatile',
-            messages: [{ role: 'user', content: 'Respond with the exact word: OK' }],
-            max_tokens: 5
-          })
-        });
+        const apiKey = config.apiKey.trim();
+        const initialModel = config.model || 'llama-3.1-8b-instant';
 
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          return { success: false, message: errData.error?.message || `HTTP ${res.status}: Failed to connect to Groq API.` };
+        const pingGroq = async (m: string) => {
+          return await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+              model: m,
+              messages: [{ role: 'user', content: 'Respond with the exact word: OK' }],
+              max_tokens: 5
+            })
+          });
+        };
+
+        // Try with chosen model first
+        let res = await pingGroq(initialModel);
+
+        if (res.ok) {
+          return {
+            success: true,
+            message: `Successfully connected to Groq (${initialModel}).`,
+            autoSelectedModel: initialModel
+          };
         }
-        return { success: true, message: `Successfully connected to Groq (${config.model || 'llama-3.3-70b-versatile'}).` };
+
+        const errData = await res.json().catch(() => ({}));
+        const errMsg = errData.error?.message || `HTTP ${res.status}: Failed to connect to Groq API.`;
+
+        // Check if the error is model-specific (not found, access restricted, deprecated)
+        const isModelAccessError =
+          res.status === 404 ||
+          errMsg.includes('does not exist') ||
+          errMsg.includes('do not have access') ||
+          errMsg.includes('model_not_found') ||
+          errMsg.includes('decommissioned');
+
+        if (isModelAccessError) {
+          // Discover what models this key actually has access to
+          try {
+            const modelsRes = await fetch('https://api.groq.com/openai/v1/models', {
+              headers: { Authorization: `Bearer ${apiKey}` }
+            });
+
+            if (modelsRes.ok) {
+              const modelsJson = await modelsRes.json().catch(() => ({}));
+              const availableModels: string[] = (modelsJson.data || []).map((m: any) => m.id);
+
+              const priorityFallbacks = [
+                'llama-3.1-8b-instant',
+                'llama-3.3-70b-versatile',
+                'llama-3.1-70b-versatile',
+                'llama3-70b-8192',
+                'llama3-8b-8192',
+                'mixtral-8x7b-32768',
+                'gemma2-9b-it'
+              ];
+
+              let workingModel = priorityFallbacks.find(pm => availableModels.includes(pm) && pm !== initialModel);
+              if (!workingModel) {
+                workingModel = availableModels.find(id => (id.includes('llama') || id.includes('mixtral')) && id !== initialModel) || availableModels[0];
+              }
+
+              if (workingModel) {
+                const fallbackRes = await pingGroq(workingModel);
+                if (fallbackRes.ok) {
+                  return {
+                    success: true,
+                    message: `Connected to Groq! (Switched to '${workingModel}' — '${initialModel}' was not enabled on your account tier).`,
+                    autoSelectedModel: workingModel,
+                    availableModels
+                  };
+                }
+              }
+            }
+          } catch {
+            // models inspection failed
+          }
+
+          // Direct ping to universal llama-3.1-8b-instant
+          if (initialModel !== 'llama-3.1-8b-instant') {
+            const fallbackInstant = await pingGroq('llama-3.1-8b-instant');
+            if (fallbackInstant.ok) {
+              return {
+                success: true,
+                message: `Connected to Groq! (Switched to 'llama-3.1-8b-instant' — '${initialModel}' was not enabled on your account tier).`,
+                autoSelectedModel: 'llama-3.1-8b-instant'
+              };
+            }
+          }
+        }
+
+        return { success: false, message: errMsg };
       } else if (config.provider === 'gemini') {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${config.model || 'gemini-1.5-flash'}:generateContent?key=${config.apiKey.trim()}`;
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: 'Respond with the exact word: OK' }] }]
-          })
-        });
+        const initialModel = config.model || 'gemini-1.5-flash';
+        const pingGemini = async (m: string) => {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${config.apiKey.trim()}`;
+          return await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: 'Respond with the exact word: OK' }] }]
+            })
+          });
+        };
+
+        let res = await pingGemini(initialModel);
+        if (!res.ok && initialModel !== 'gemini-1.5-flash') {
+          res = await pingGemini('gemini-1.5-flash');
+          if (res.ok) {
+            return {
+              success: true,
+              message: `Successfully connected to Google Gemini (Switched to 'gemini-1.5-flash').`,
+              autoSelectedModel: 'gemini-1.5-flash'
+            };
+          }
+        }
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
           return { success: false, message: errData.error?.message || `HTTP ${res.status}: Failed to connect to Gemini API.` };
         }
-        return { success: true, message: `Successfully connected to Google Gemini (${config.model || 'gemini-1.5-flash'}).` };
+        return { success: true, message: `Successfully connected to Google Gemini (${initialModel}).`, autoSelectedModel: initialModel };
       } else {
+        const initialModel = config.model || 'gpt-4o-mini';
         const res = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -224,7 +342,7 @@ export class AiService {
             'Authorization': `Bearer ${config.apiKey.trim()}`
           },
           body: JSON.stringify({
-            model: config.model || 'gpt-4o-mini',
+            model: initialModel,
             messages: [{ role: 'user', content: 'Respond with the exact word: OK' }],
             max_tokens: 5
           })
@@ -234,7 +352,7 @@ export class AiService {
           const errData = await res.json().catch(() => ({}));
           return { success: false, message: errData.error?.message || `HTTP ${res.status}: Failed to connect to OpenAI API.` };
         }
-        return { success: true, message: `Successfully connected to OpenAI (${config.model || 'gpt-4o-mini'}).` };
+        return { success: true, message: `Successfully connected to OpenAI (${initialModel}).`, autoSelectedModel: initialModel };
       }
     } catch (e: any) {
       return { success: false, message: e.message || 'Network error connecting to AI provider.' };
@@ -310,22 +428,36 @@ JSON Structure required:
     let jsonStr = '';
 
     if (config.provider === 'groq') {
-      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${config.apiKey.trim()}`
-        },
-        body: JSON.stringify({
-          model: config.model || 'llama-3.3-70b-versatile',
-          messages: [{ role: 'user', content: prompt }],
-          response_format: { type: 'json_object' }
-        })
-      });
+      const callGroq = async (m: string) => {
+        return await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${config.apiKey.trim()}`
+          },
+          body: JSON.stringify({
+            model: m,
+            messages: [{ role: 'user', content: prompt }],
+            response_format: { type: 'json_object' }
+          })
+        });
+      };
+
+      const requestedModel = config.model || 'llama-3.1-8b-instant';
+      let res = await callGroq(requestedModel);
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(`Groq evaluation failed: ${err.error?.message || `HTTP ${res.status}`}`);
+        const msg = err.error?.message || '';
+        const isModelErr = res.status === 404 || msg.includes('does not exist') || msg.includes('do not have access') || msg.includes('model_not_found');
+        if (isModelErr && requestedModel !== 'llama-3.1-8b-instant') {
+          console.warn(`[TalentDossier] Groq model '${requestedModel}' unavailable. Retrying with 'llama-3.1-8b-instant'.`);
+          res = await callGroq('llama-3.1-8b-instant');
+        }
+        if (!res.ok) {
+          const finalErr = await res.json().catch(() => ({}));
+          throw new Error(`Groq evaluation failed: ${finalErr.error?.message || err.error?.message || `HTTP ${res.status}`}`);
+        }
       }
       const data = await res.json();
       jsonStr = data.choices?.[0]?.message?.content || '{}';
@@ -440,23 +572,37 @@ Output STRICT JSON ONLY:
     let jsonStr = '';
 
     if (config.provider === 'groq') {
-      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${config.apiKey.trim()}`
-        },
-        body: JSON.stringify({
-          model: config.model || 'llama-3.3-70b-versatile',
-          messages: [{ role: 'user', content: prompt }],
-          response_format: { type: 'json_object' },
-          temperature: 0.1
-        })
-      });
+      const callGroqScreen = async (m: string) => {
+        return await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${config.apiKey.trim()}`
+          },
+          body: JSON.stringify({
+            model: m,
+            messages: [{ role: 'user', content: prompt }],
+            response_format: { type: 'json_object' },
+            temperature: 0.1
+          })
+        });
+      };
+
+      const requestedModel = config.model || 'llama-3.1-8b-instant';
+      let res = await callGroqScreen(requestedModel);
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error?.message || `Groq screening error: HTTP ${res.status}`);
+        const msg = err.error?.message || '';
+        const isModelErr = res.status === 404 || msg.includes('does not exist') || msg.includes('do not have access') || msg.includes('model_not_found');
+        if (isModelErr && requestedModel !== 'llama-3.1-8b-instant') {
+          console.warn(`[TalentDossier] Groq model '${requestedModel}' unavailable. Retrying with 'llama-3.1-8b-instant'.`);
+          res = await callGroqScreen('llama-3.1-8b-instant');
+        }
+        if (!res.ok) {
+          const finalErr = await res.json().catch(() => ({}));
+          throw new Error(finalErr.error?.message || err.error?.message || `Groq screening error: HTTP ${res.status}`);
+        }
       }
       const data = await res.json();
       jsonStr = data.choices?.[0]?.message?.content || '{}';
@@ -586,31 +732,49 @@ Instructions:
 4. Format responses with clean, scannable markdown (bullet points, bold text).`;
 
       if (config.provider === 'groq') {
-        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${config.apiKey.trim()}`
-          },
-          body: JSON.stringify({
-            model: config.model || 'llama-3.3-70b-versatile',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              ...history.slice(-4),
-              { role: 'user', content: query }
-            ],
-            temperature: 0.2,
-            max_tokens: 800
-          })
-        });
+        const callGroqChat = async (m: string) => {
+          return await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${config.apiKey.trim()}`
+            },
+            body: JSON.stringify({
+              model: m,
+              messages: [
+                { role: 'system', content: systemPrompt },
+                ...history.slice(-4),
+                { role: 'user', content: query }
+              ],
+              temperature: 0.2,
+              max_tokens: 800
+            })
+          });
+        };
 
-        if (res.ok) {
+        const requestedModel = config.model || 'llama-3.1-8b-instant';
+        let res = await callGroqChat(requestedModel);
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          const msg = errData.error?.message || '';
+          const isModelErr = res.status === 404 || msg.includes('does not exist') || msg.includes('do not have access') || msg.includes('model_not_found');
+          if (isModelErr && requestedModel !== 'llama-3.1-8b-instant') {
+            console.warn(`[TalentDossier] Groq model '${requestedModel}' unavailable. Retrying with 'llama-3.1-8b-instant'.`);
+            res = await callGroqChat('llama-3.1-8b-instant');
+          }
+          if (res.ok) {
+            const data = await res.json();
+            const text = data.choices?.[0]?.message?.content;
+            if (text) return text;
+          } else {
+            const finalErr = await res.json().catch(() => ({}));
+            throw new Error(finalErr.error?.message || errData.error?.message || `HTTP ${res.status}: Groq API error`);
+          }
+        } else {
           const data = await res.json();
           const text = data.choices?.[0]?.message?.content;
           if (text) return text;
-        } else {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error?.message || `HTTP ${res.status}: Groq API error`);
         }
       } else if (config.provider === 'gemini') {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${config.model || 'gemini-1.5-flash'}:generateContent?key=${config.apiKey.trim()}`;

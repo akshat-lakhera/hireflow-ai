@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CandidateCaseFile, RoleSetup, ReviewMode } from './types';
-import { DEFAULT_ROLE, SINGLE_SAMPLE_CASE, SAMPLE_CASE_FILES } from './data/sampleCases';
+import { DEFAULT_ROLE } from './data/defaultRole';
 import { CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
 
 // Components
@@ -14,15 +14,17 @@ import { UploadCandidateModal } from './components/UploadCandidateModal';
 import { AiSettingsModal } from './components/AiSettingsModal';
 import { DatabaseSettingsModal } from './components/DatabaseSettingsModal';
 import { AutonomousScreenerModal } from './components/AutonomousScreenerModal';
+import { GmailSyncModal } from './components/GmailSyncModal';
+import { EmailApprovalModal } from './components/EmailApprovalModal';
 import { AiService } from './services/aiApi';
 import { DatabaseService } from './services/databaseService';
+import { GmailSyncService } from './services/gmailSyncService';
 
 interface ToastNotification {
   id: string;
   type: 'success' | 'error' | 'info';
   message: string;
 }
-
 
 export function App() {
   // Top-level Navigation View State (supports 404 fallback)
@@ -38,16 +40,14 @@ export function App() {
     }
   });
 
-  // Candidate Pool (Starts with 1 sample reference case)
-  const [candidates, setCandidates] = useState<CandidateCaseFile[]>(SAMPLE_CASE_FILES);
+  // Candidate Pool: Starts 100% clean & empty. No hardcoded or dummy cases.
+  const [candidates, setCandidates] = useState<CandidateCaseFile[]>([]);
 
   // Review Mode
   const [reviewMode, setReviewMode] = useState<ReviewMode>('recruiter');
 
   // Selected Candidate for Right Rail & Quick Actions
-  const [selectedCandidateId, setSelectedCandidateId] = useState<string>(
-    SAMPLE_CASE_FILES[0]?.id || ''
-  );
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string>('');
 
   // Active Modals
   const [detailModalCandidate, setDetailModalCandidate] = useState<CandidateCaseFile | null>(null);
@@ -57,6 +57,9 @@ export function App() {
   const [isAiSettingsOpen, setIsAiSettingsOpen] = useState(false);
   const [isDatabaseSettingsOpen, setIsDatabaseSettingsOpen] = useState(false);
   const [isAutonomousScreenerOpen, setIsAutonomousScreenerOpen] = useState(false);
+  const [isGmailSyncOpen, setIsGmailSyncOpen] = useState(false);
+  const [emailApprovalCandidate, setEmailApprovalCandidate] = useState<CandidateCaseFile | null>(null);
+  const [emailApprovalStatus, setEmailApprovalStatus] = useState<CandidateCaseFile['reviewStatus']>('Interview Ready');
   const [isAiEvaluating, setIsAiEvaluating] = useState(false);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
 
@@ -68,22 +71,36 @@ export function App() {
     }, 3500);
   };
 
-  // Load candidates from local IndexedDB vector database on startup
+  // Load real candidates from local IndexedDB vector database on startup
   useEffect(() => {
     DatabaseService.getAllCandidates()
       .then(loaded => {
-        if (loaded && loaded.length > 0) {
-          setCandidates(loaded);
-          setSelectedCandidateId(loaded[0].id);
-        } else {
-          // Seed initial benchmark candidate cases into local database with 384-dim vectors
-          DatabaseService.saveCandidates(SAMPLE_CASE_FILES).catch(e => console.warn('DB seed notice:', e));
+        // Purge any stale sample/demo cases with dummy IDs
+        const realCandidates = (loaded || []).filter(c => 
+          !c.id.startsWith('case-alex-rivera') && 
+          !c.id.startsWith('case-sample-') &&
+          !c.id.startsWith('case-maya-lin') &&
+          !c.id.startsWith('case-dev-patel') &&
+          !c.id.startsWith('case-elena-rostova') &&
+          !c.id.startsWith('case-marcus-vance')
+        );
+
+        // Delete stale mock cases from storage
+        (loaded || []).forEach(c => {
+          if (!realCandidates.some(r => r.id === c.id)) {
+            DatabaseService.deleteCandidate(c.id).catch(() => {});
+          }
+        });
+
+        setCandidates(realCandidates);
+        if (realCandidates.length > 0) {
+          setSelectedCandidateId(realCandidates[0].id);
         }
       })
       .catch(err => console.warn('IndexedDB startup notice:', err));
   }, []);
 
-  // Item 4: Dynamic Page Title
+  // Dynamic Page Title
   useEffect(() => {
     const activeCandidate = candidates.find(c => c.id === selectedCandidateId);
     if (view === 'dashboard' && activeCandidate) {
@@ -102,29 +119,11 @@ export function App() {
     setView('onboarding');
   };
 
-  const handleTrySampleCase = () => {
-    setRole(DEFAULT_ROLE);
-    try {
-      localStorage.setItem('talentdossier_active_role', JSON.stringify(DEFAULT_ROLE));
-    } catch (e) {
-      console.warn('LocalStorage error:', e);
-    }
-    setCandidates([SINGLE_SAMPLE_CASE]);
-    setSelectedCandidateId(SINGLE_SAMPLE_CASE.id);
-    DatabaseService.saveCandidate(SINGLE_SAMPLE_CASE).catch(e => console.warn('DB save notice:', e));
-    setView('dashboard');
-  };
-
-  const handleLoadSingleDemoCase = () => {
-    setCandidates([SINGLE_SAMPLE_CASE]);
-    setSelectedCandidateId(SINGLE_SAMPLE_CASE.id);
-    DatabaseService.saveCandidate(SINGLE_SAMPLE_CASE).catch(e => console.warn('DB save notice:', e));
-  };
-
   const handleClearBoard = () => {
     candidates.forEach(c => DatabaseService.deleteCandidate(c.id).catch(e => console.warn('DB delete notice:', e)));
     setCandidates([]);
     setSelectedCandidateId('');
+    showToast('Pipeline cleared. Ready for new resume uploads.', 'info');
   };
 
   const handleOnboardingComplete = (
@@ -138,21 +137,19 @@ export function App() {
     } catch (e) {
       console.warn('LocalStorage error:', e);
     }
+
     setReviewMode(newReviewMode);
 
-    if (uploadedCandidates.length > 0) {
+    if (uploadedCandidates && uploadedCandidates.length > 0) {
       setCandidates(uploadedCandidates);
       setSelectedCandidateId(uploadedCandidates[0].id);
       DatabaseService.saveCandidates(uploadedCandidates).catch(e => console.warn('DB save notice:', e));
-    } else {
-      setCandidates([]);
-      setSelectedCandidateId('');
     }
 
     setView('dashboard');
   };
 
-  // Quick Ingestion of candidates from dashboard
+  // Ingestion of real candidates from dashboard
   const handleCandidatesUploaded = (newCandidates: CandidateCaseFile[]) => {
     setCandidates(prev => {
       const combined = [...newCandidates, ...prev];
@@ -163,7 +160,6 @@ export function App() {
     setSelectedCandidateId(newCandidates[0]?.id || selectedCandidateId);
     DatabaseService.saveCandidates(newCandidates).catch(e => console.warn('DB save notice:', e));
   };
-
 
   // Candidate Actions: Add Note
   const handleAddNote = (candidateId: string, noteText: string) => {
@@ -187,7 +183,6 @@ export function App() {
       })
     );
 
-
     if (detailModalCandidate && detailModalCandidate.id === candidateId) {
       setDetailModalCandidate(prev => prev ? {
         ...prev,
@@ -202,11 +197,13 @@ export function App() {
     showToast('Interview note saved to candidate dossier', 'success');
   };
 
-  // Candidate Actions: Update Status
+  // Candidate Actions: Update Status & Trigger Human-in-the-Loop Gmail Sync
   const handleUpdateStatus = (
     candidateId: string,
     status: CandidateCaseFile['reviewStatus']
   ) => {
+    const candidateToUpdate = candidates.find(c => c.id === candidateId);
+
     setCandidates(prev =>
       prev.map(c => {
         if (c.id === candidateId) {
@@ -229,6 +226,14 @@ export function App() {
     );
     showToast(`Status updated to "${status}"`, 'info');
 
+    // Human-in-the-loop: Prompt HR if candidate is moved to Interview Ready or Passed Screen
+    if (candidateToUpdate && (status === 'Interview Ready' || status === 'Passed Screen')) {
+      const gmailCfg = GmailSyncService.getConfig();
+      if (gmailCfg.autoPromptOnSync) {
+        setEmailApprovalCandidate({ ...candidateToUpdate, reviewStatus: status });
+        setEmailApprovalStatus(status);
+      }
+    }
 
     if (detailModalCandidate && detailModalCandidate.id === candidateId) {
       setDetailModalCandidate(prev => prev ? { ...prev, reviewStatus: status } : null);
@@ -250,16 +255,11 @@ export function App() {
         if (c.id === candidateId) {
           const updated = {
             ...c,
-            interviewQuestions: c.interviewQuestions.map(q => {
-              if (q.id === questionId) {
-                return {
-                  ...q,
-                  candidateAnswer: answerText,
-                  isAddressed: true
-                };
-              }
-              return q;
-            })
+            interviewQuestions: c.interviewQuestions.map(q =>
+              q.id === questionId
+                ? { ...q, candidateAnswer: answerText, isAddressed: Boolean(answerText.trim()) }
+                : q
+            )
           };
           updatedCandidate = updated;
           DatabaseService.saveCandidate(updated).catch(e => console.warn('DB save notice:', e));
@@ -268,53 +268,55 @@ export function App() {
         return c;
       })
     );
+
     if (updatedCandidate) {
-      setInterviewKitCandidate(updatedCandidate);
       if (detailModalCandidate && detailModalCandidate.id === candidateId) {
         setDetailModalCandidate(updatedCandidate);
       }
+      if (interviewKitCandidate && interviewKitCandidate.id === candidateId) {
+        setInterviewKitCandidate(updatedCandidate);
+      }
     }
-    showToast('Interview response saved to dossier', 'success');
   };
 
-  // Deep AI Re-evaluation via live Gemini/OpenAI API
+  // AI Re-evaluation Trigger
   const handleReevaluateWithAi = async (candidate: CandidateCaseFile) => {
     if (!AiService.isConfigured()) {
       setIsAiSettingsOpen(true);
+      showToast('Please add an AI API key (Groq, Gemini, or OpenAI) to run live reasoning', 'info');
       return;
     }
 
     setIsAiEvaluating(true);
+    showToast(`Evaluating ${candidate.name} with live AI engine...`, 'info');
+
     try {
-      const resumeContent = [
-        candidate.resumeSummary,
-        candidate.proofLine,
-        candidate.experiences.map(e => `${e.company} ${e.role} ${e.highlights.join(' ')}`).join(' '),
-        candidate.projects?.map(p => `${p.name} ${p.description}`).join(' ') || ''
-      ].join('\n\n');
+      const result = await AiService.evaluateWithLLM(
+        candidate.rawText || candidate.resumeSummary || candidate.name,
+        role
+      );
 
-      const result = await AiService.evaluateWithLLM(resumeContent, role);
       let updatedCandidate: CandidateCaseFile | null = null;
-
       setCandidates(prev => {
         const next = prev.map(c => {
           if (c.id === candidate.id) {
             const updated = {
               ...c,
               matchScore: result.matchScore,
-              fitBadge: result.fitBadge,
+              fitBadge: result.fitBadge as any,
               evidenceMap: result.evidenceMap.length > 0 ? result.evidenceMap : c.evidenceMap,
               interviewQuestions: result.interviewQuestions.length > 0 ? result.interviewQuestions : c.interviewQuestions,
               riskFlags: result.riskFlags.length > 0 ? result.riskFlags : c.riskFlags,
               auditTrail: [
                 {
                   id: `at-ai-${Date.now()}`,
-                  action: 'Deep AI LLM Evaluation Completed',
+                  action: `AI Live Re-evaluation (${AiService.getConfig().provider.toUpperCase()}: ${AiService.getConfig().model})`,
                   timestamp: 'Just now',
-                  note: `Live analysis completed via ${AiService.getConfig().provider.toUpperCase()} (${AiService.getConfig().model}).`
+                  note: `Recalculated match score: ${result.matchScore}% (${result.fitBadge}).`
                 },
                 ...c.auditTrail
-              ]
+              ],
+              updatedAt: new Date().toISOString()
             };
             updatedCandidate = updated;
             DatabaseService.saveCandidate(updated).catch(e => console.warn('DB save notice:', e));
@@ -345,7 +347,6 @@ export function App() {
       {view === 'landing' && (
         <LandingPage
           onStartOnboarding={handleStartOnboarding}
-          onTrySampleCase={handleTrySampleCase}
           onGoToDashboard={() => setView('dashboard')}
           candidateCount={candidates.length}
         />
@@ -375,7 +376,11 @@ export function App() {
           onOpenAiSettings={() => setIsAiSettingsOpen(true)}
           onOpenDatabaseSettings={() => setIsDatabaseSettingsOpen(true)}
           onOpenAutonomousScreener={() => setIsAutonomousScreenerOpen(true)}
-          onLoadSingleDemoCase={handleLoadSingleDemoCase}
+          onOpenGmailSettings={() => setIsGmailSyncOpen(true)}
+          onOpenEmailApproval={(c) => {
+            setEmailApprovalCandidate(c);
+            setEmailApprovalStatus(c.reviewStatus);
+          }}
           onClearBoard={handleClearBoard}
           onSetReviewMode={setReviewMode}
           onAddNote={handleAddNote}
@@ -387,7 +392,7 @@ export function App() {
         />
       )}
 
-      {/* 4. 404 Fallback View (Item 16: Add 404 page) */}
+      {/* 4. 404 Fallback View */}
       {view === 'not_found' && (
         <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-50 text-center">
           <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-2xl mb-4 shadow-sm">
@@ -489,10 +494,39 @@ export function App() {
           }
           showToast(`Autonomous Screener completed: ${updated.length} candidates triaged`, 'success');
         }}
+        onTriggerEmailSync={(triagedCandidates) => {
+          const topCandidate = triagedCandidates.find(c => c.reviewStatus === 'Interview Ready') || triagedCandidates[0];
+          if (topCandidate) {
+            setEmailApprovalCandidate(topCandidate);
+            setEmailApprovalStatus(topCandidate.reviewStatus);
+          }
+        }}
       />
 
+      {/* MODAL 8: Gmail Sync & Automated Candidate Dispatch Settings Modal */}
+      <GmailSyncModal
+        isOpen={isGmailSyncOpen}
+        onClose={() => setIsGmailSyncOpen(false)}
+        onConfigSaved={() => showToast('Gmail credentials saved securely', 'success')}
+      />
 
-      {/* Global Floating Toast Notifications (Item 14 & 15: Error & Success Messages) */}
+      {/* MODAL 9: Human-In-The-Loop Email Dispatch Approval Modal */}
+      <EmailApprovalModal
+        isOpen={Boolean(emailApprovalCandidate)}
+        onClose={() => setEmailApprovalCandidate(null)}
+        candidate={emailApprovalCandidate}
+        role={role}
+        targetStatus={emailApprovalStatus}
+        onOpenGmailSettings={() => {
+          setEmailApprovalCandidate(null);
+          setIsGmailSyncOpen(true);
+        }}
+        onEmailSent={(receipt) => {
+          showToast(`Email dispatched to ${receipt.candidateName} via Gmail!`, 'success');
+        }}
+      />
+
+      {/* Global Floating Toast Notifications */}
       <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none max-w-sm">
         {toasts.map(t => (
           <div

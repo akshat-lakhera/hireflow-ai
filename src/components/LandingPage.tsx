@@ -17,14 +17,12 @@ import {
 
 interface LandingPageProps {
   onStartOnboarding: () => void;
-  onTrySampleCase: () => void;
   onGoToDashboard?: () => void;
   candidateCount?: number;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({
   onStartOnboarding,
-  onTrySampleCase,
   onGoToDashboard,
   candidateCount = 0
 }) => {
@@ -57,12 +55,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </button>
           )}
           <button 
-            onClick={onTrySampleCase} 
-            className="px-3 py-1.5 font-medium text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors"
-          >
-            Try 1 Demo Case
-          </button>
-          <button 
             onClick={onStartOnboarding}
             className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold shadow-sm transition-colors flex items-center gap-1.5"
           >
@@ -92,34 +84,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
         {/* CTA Buttons */}
         <div className="mt-8 flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
-          {candidateCount > 0 && onGoToDashboard && (
-            <button
-              onClick={onGoToDashboard}
-              className="w-full sm:w-auto px-6 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm shadow-sm hover:shadow transition-all flex items-center justify-center gap-2"
-            >
-              <Users className="w-4 h-4" />
-              <span>Resume Workspace ({candidateCount} Candidates)</span>
-            </button>
-          )}
-
           <button
             onClick={onStartOnboarding}
-            className={`w-full sm:w-auto px-6 py-3 rounded-lg font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
-              candidateCount > 0 
-                ? 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 shadow-sm'
-                : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm hover:shadow'
-            }`}
+            className="w-full sm:w-auto px-6 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm shadow-sm hover:shadow transition-all flex items-center justify-center gap-2"
           >
             <span>Open Role Blueprint Studio</span>
             <ArrowRight className="w-4 h-4" />
           </button>
 
-          <button
-            onClick={onTrySampleCase}
-            className="w-full sm:w-auto px-6 py-3 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-sm shadow-sm transition-all"
-          >
-            Explore 1 Demo Candidate File
-          </button>
+          {onGoToDashboard && (
+            <button
+              onClick={onGoToDashboard}
+              className="w-full sm:w-auto px-6 py-3 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-sm shadow-sm transition-all flex items-center justify-center gap-2"
+            >
+              <Users className="w-4 h-4" />
+              <span>Go to Recruiter Workspace</span>
+            </button>
+          )}
         </div>
 
         {/* Feature Cards Grid (Ashby Style) */}

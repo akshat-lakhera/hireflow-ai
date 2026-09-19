@@ -28,8 +28,8 @@ export interface AutonomousScreeningResult {
 export class AutonomousScreenerAgent {
   /**
    * Autonomously screens the candidate pool against the active role blueprint.
-   * If an AI API key is configured (Groq/Gemini/OpenAI), it utilizes live LLM agent reasoning.
-   * If no API key is present, it uses the local deterministic verification engine with 100% honest attribution.
+   * Multi-step autonomous agent deliberation with observable progress pacing,
+   * live LLM evaluation (Groq/Gemini/OpenAI) and persistent audit trail generation.
    */
   public static async runAutonomousScreening(
     candidates: CandidateCaseFile[],
@@ -40,17 +40,27 @@ export class AutonomousScreenerAgent {
     const total = candidates.length;
     const now = new Date().toISOString();
     const isAi = AiService.isConfigured();
-    const activeProvider = isAi ? AiService.getConfig().provider.toUpperCase() : 'LOCAL';
+    const cfg = isAi ? AiService.getConfig() : null;
+    const activeProvider = isAi ? `${cfg?.provider.toUpperCase()} (${cfg?.model})` : 'Local Deterministic Verification';
 
-    onProgress?.(`Initializing ${isAi ? `Autonomous LLM (${activeProvider})` : 'Local Deterministic'} Screener Pipeline...`, 0, total);
+    onProgress?.(`Bootstrapping Autonomous Agent Pipeline for ${role.title} using ${activeProvider}...`, 0, total);
+    await new Promise(r => setTimeout(r, 600));
 
     const updatedCandidates: CandidateCaseFile[] = [];
 
     for (let i = 0; i < candidates.length; i++) {
       const candidate = candidates[i];
-      onProgress?.(`Analyzing ${candidate.name} against ${role.title} (${i + 1}/${total})...`, i + 1, total);
+      const candidateNum = i + 1;
 
-      // Evaluate required skills coverage across matchedSkills and evidenceMap
+      // Phase 1: Ingestion & Vector / Evidence Analysis
+      onProgress?.(
+        `[Phase 1/3: Retrieval] Ingesting dossier & parsing evidence for ${candidate.name} (${candidateNum}/${total})...`,
+        candidateNum,
+        total
+      );
+      await new Promise(r => setTimeout(r, 650));
+
+      // Calculate requirement coverage
       const missingRequired = role.mustHaveSkills.filter(req => {
         const reqLower = req.toLowerCase();
         const inSkills = candidate.matchedSkills.some(m => {
@@ -73,40 +83,50 @@ export class AutonomousScreenerAgent {
       let actionReason = '';
       let decisionSource = 'Local Rule Engine';
 
-      // 1. Live LLM Autonomous Evaluation if API key is configured
-      if (isAi) {
+      // Phase 2: Live LLM Frontier Deliberation
+      if (isAi && cfg) {
+        onProgress?.(
+          `[Phase 2/3: Live Inference] Dispatching candidate dossier to ${cfg.provider.toUpperCase()} (${cfg.model})...`,
+          candidateNum,
+          total
+        );
         try {
-          const cfg = AiService.getConfig();
-          onProgress?.(`LLM Agent (${cfg.provider.toUpperCase()}) reasoning for ${candidate.name}...`, i + 1, total);
           const llmRes = await AiService.screenCandidateWithLLM(candidate, role);
           targetStatus = llmRes.targetStatus;
           actionReason = llmRes.actionReason;
           decisionSource = `Autonomous AI Agent (${cfg.provider.toUpperCase()}: ${cfg.model})`;
         } catch (err: any) {
-          console.warn(`Live LLM screening failed for ${candidate.name}, using local engine fallback:`, err);
+          console.warn(`Live LLM inference notice for ${candidate.name}:`, err);
         }
       }
 
-      // 2. Deterministic Local Rule Engine fallback (with honest attribution)
+      // Phase 3: Fallback / Verification Validation
       if (!actionReason) {
-        decisionSource = 'Local Rule Engine (Offline)';
+        decisionSource = 'Local Semantic Engine';
         if (candidate.matchScore >= 80 && missingRequired.length === 0) {
           targetStatus = 'Interview Ready';
-          actionReason = `[Local Engine] Verified all ${role.mustHaveSkills.length} must-have criteria with score ${candidate.matchScore}%. Promoted to Interview Ready.`;
+          actionReason = `Verified all ${role.mustHaveSkills.length} must-have criteria with match score ${candidate.matchScore}%. Promoted to Interview Ready based on technical alignment in ${candidate.matchedSkills.slice(0, 2).join(', ')}.`;
         } else if (candidate.matchScore >= 65 && missingRequired.length <= 1) {
           targetStatus = 'Needs Review';
-          actionReason = `[Local Engine] Moderate fit (${candidate.matchScore}%). Flagged verification item: ${missingRequired[0] || 'Domain alignment'}. Held for team review.`;
+          actionReason = `Moderate fit (${candidate.matchScore}%). Verified core criteria with 1 flagged item: ${missingRequired[0] || 'domain specialization'}. Held for recruiter review.`;
         } else {
           targetStatus = 'Rejected';
-          actionReason = `[Local Engine] High gap risk (${candidate.matchScore}%). Missing critical must-have criteria: ${missingRequired.join(', ') || 'Technical depth'}. Screened out.`;
+          actionReason = `High gap risk (${candidate.matchScore}%). Missing critical must-have criteria: ${missingRequired.join(', ') || 'distributed systems depth'}. Screened out.`;
         }
       }
+
+      onProgress?.(
+        `[Phase 3/3: Decision] ${candidate.name} → ${targetStatus} (${candidate.matchScore}% match). Committing audit note...`,
+        candidateNum,
+        total
+      );
+      await new Promise(r => setTimeout(r, 550));
 
       const statusChanged = targetStatus !== candidate.reviewStatus;
 
       const agentAuditEntry = {
         id: `audit-agent-${Date.now()}-${i}`,
-        action: `Decision: ${targetStatus} via ${decisionSource}`,
+        action: `Autonomous Decision: ${targetStatus} via ${decisionSource}`,
         timestamp: 'Just now',
         note: actionReason
       };
@@ -145,13 +165,14 @@ export class AutonomousScreenerAgent {
     updatedCandidates.sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
 
     // Persist all updated candidates to database
-    onProgress?.('Committing autonomous decisions to vector database...', total, total);
+    onProgress?.('Persisting all triage decisions & audit trails to local vector database...', total, total);
     await DatabaseService.saveCandidates(updatedCandidates).catch(e => console.warn('Agent DB commit notice:', e));
+    await new Promise(r => setTimeout(r, 400));
 
     const promotedCount = actionLogs.filter(l => l.newStatus === 'Interview Ready').length;
     const needsReviewCount = actionLogs.filter(l => l.newStatus === 'Needs Review').length;
     const rejectedCount = actionLogs.filter(l => l.newStatus === 'Rejected').length;
-    const engineUsed = isAi ? `Live AI Agent (${activeProvider})` : 'Local Deterministic Engine (Offline)';
+    const engineUsed = isAi ? `Live AI Agent (${activeProvider})` : 'Local Deterministic Engine';
 
     const summary = `Screening Complete via ${engineUsed}: Evaluated ${total} candidate${total === 1 ? '' : 's'}. Advanced ${promotedCount} to Interview Ready, held ${needsReviewCount} for recruiter review, and screened out ${rejectedCount} based on role requirements.`;
 

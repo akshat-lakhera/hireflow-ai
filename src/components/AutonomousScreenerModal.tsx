@@ -20,6 +20,7 @@ interface AutonomousScreenerModalProps {
   candidates: CandidateCaseFile[];
   role: RoleSetup;
   onApplyResults: (updatedCandidates: CandidateCaseFile[]) => void;
+  onTriggerEmailSync?: (candidates: CandidateCaseFile[]) => void;
 }
 
 export const AutonomousScreenerModal: React.FC<AutonomousScreenerModalProps> = ({
@@ -27,7 +28,8 @@ export const AutonomousScreenerModal: React.FC<AutonomousScreenerModalProps> = (
   onClose,
   candidates,
   role,
-  onApplyResults
+  onApplyResults,
+  onTriggerEmailSync
 }) => {
   const [isRunning, setIsRunning] = useState(false);
   const [currentProgressText, setCurrentProgressText] = useState('');

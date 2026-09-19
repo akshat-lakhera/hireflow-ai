@@ -197,7 +197,7 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
         sender: 'agent',
         text: configured
           ? `Hello! I am your **Autonomous TalentDossier Copilot** powered by **${cfg.provider.toUpperCase()} (${cfg.model})**.\n\nI have real-time grounded context on the **${role.title}** role and all **${candidates.length} candidate${candidates.length === 1 ? '' : 's'}** in the pipeline. I can answer complex questions, compare candidates, update stages, add recruiter notes, and autonomously screen your pipeline.`
-          : `### ⚠️ AI API Key Required\n\nWelcome to **TalentDossier Copilot**.\n\nCurrently, **no AI API key is configured**. TalentDossier operates with authentic LLM evaluation and does **not** provide fake, mock, or hardcoded dummy answers.\n\nTo ask questions, evaluate qualifications, compare applicants, or execute agent workspace actions, please add your free **Groq** (\`llama-3.3-70b\`) or **Google Gemini** API key in **AI Settings**.`,
+          : `### ⚠️ AI API Key Required\n\nWelcome to **TalentDossier Copilot**.\n\nCurrently, **no AI API key is configured**. TalentDossier operates with authentic LLM evaluation and does **not** provide fake, mock, or hardcoded dummy answers.\n\nTo ask questions, evaluate qualifications, compare applicants, or execute agent workspace actions, please add your free **Groq** (\`llama-3.1-8b\`) or **Google Gemini** API key in **AI Settings**.`,
         timestamp: 'Just now'
       }
     ];
@@ -320,7 +320,7 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
       const warnMsg: ChatMessage = {
         id: `msg-agent-${Date.now()}`,
         sender: 'agent',
-        text: `### ⚠️ AI API Key Required\n\nNo AI API key is configured. TalentDossier operates with authentic LLM intelligence and does **not** provide dummy or hardcoded answers.\n\nPlease open **AI Settings** (top header) and enter a free **Groq** (\`llama-3.3-70b\`) or **Google Gemini** API key to chat with the copilot.`,
+        text: `### ⚠️ AI API Key Required\n\nNo AI API key is configured. TalentDossier operates with authentic LLM intelligence and does **not** provide dummy or hardcoded answers.\n\nPlease open **AI Settings** (top header) and enter a free **Groq** (\`llama-3.1-8b\`) or **Google Gemini** API key to chat with the copilot.`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       setMessages(prev => [...prev, userMsg, warnMsg]);
@@ -397,7 +397,7 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
         sender: 'agent',
         text: isAiConfigured 
           ? `Conversation cleared. Ask me anything about **${role.title}** applicants, gaps, or ask me to execute actions in your pipeline.`
-          : `### ⚠️ AI API Key Required\n\nNo AI API key is configured. Please configure your free **Groq** (\`llama-3.3-70b\`) or **Google Gemini** API key in **AI Settings** to begin.`,
+          : `### ⚠️ AI API Key Required\n\nNo AI API key is configured. Please configure your free **Groq** (\`llama-3.1-8b\`) or **Google Gemini** API key in **AI Settings** to begin.`,
         timestamp: 'Just now'
       }
     ]);

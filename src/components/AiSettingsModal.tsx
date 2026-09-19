@@ -28,27 +28,56 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({
   const [config, setConfig] = useState<AiConfig>({
     provider: 'groq',
     apiKey: '',
-    model: 'llama-3.3-70b-versatile'
+    model: 'llama-3.1-8b-instant'
   });
 
+  const [availableGroqModels, setAvailableGroqModels] = useState<string[]>([]);
   const [showApiKey, setShowApiKey] = useState(false);
   const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string; autoSelectedModel?: string } | null>(null);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-      setConfig(AiService.getConfig());
+      const current = AiService.getConfig();
+      setConfig(current);
       setTestResult(null);
       setSavedSuccess(false);
       setShowApiKey(false);
+
+      if (current.provider === 'groq' && current.apiKey.trim()) {
+        AiService.getAvailableGroqModels(current.apiKey).then(models => {
+          if (models && models.length > 0) {
+            setAvailableGroqModels(models);
+            if (current.model && !models.includes(current.model)) {
+              const fallback = models.includes('llama-3.1-8b-instant') ? 'llama-3.1-8b-instant' : models[0];
+              setConfig(prev => ({ ...prev, model: fallback }));
+            }
+          }
+        });
+      }
     }
   }, [isOpen]);
+
+  // Inspect models when user types or updates Groq key
+  useEffect(() => {
+    if (config.provider === 'groq' && config.apiKey.trim().startsWith('gsk_')) {
+      AiService.getAvailableGroqModels(config.apiKey).then(models => {
+        if (models && models.length > 0) {
+          setAvailableGroqModels(models);
+          if (config.model && !models.includes(config.model)) {
+            const fallback = models.includes('llama-3.1-8b-instant') ? 'llama-3.1-8b-instant' : models[0];
+            setConfig(prev => ({ ...prev, model: fallback }));
+          }
+        }
+      });
+    }
+  }, [config.provider, config.apiKey]);
 
   if (!isOpen) return null;
 
   const handleProviderChange = (provider: 'groq' | 'gemini' | 'openai') => {
-    let defaultModel = 'llama-3.3-70b-versatile';
+    let defaultModel = 'llama-3.1-8b-instant';
     if (provider === 'gemini') defaultModel = 'gemini-1.5-flash';
     if (provider === 'openai') defaultModel = 'gpt-4o-mini';
 
@@ -65,6 +94,12 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({
     setTestResult(null);
     const result = await AiService.testConnection(config);
     setTestResult(result);
+    if (result.autoSelectedModel && result.autoSelectedModel !== config.model) {
+      setConfig(prev => ({ ...prev, model: result.autoSelectedModel! }));
+    }
+    if (result.availableModels && result.availableModels.length > 0) {
+      setAvailableGroqModels(result.availableModels);
+    }
     setTesting(false);
   };
 
@@ -179,9 +214,18 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({
             >
               {config.provider === 'groq' && (
                 <>
-                  <option value="llama-3.3-70b-versatile">Llama 3.3 70B Versatile (Recommended — Fastest & Best Reasoning)</option>
-                  <option value="llama-3.1-8b-instant">Llama 3.1 8B Instant (Sub-second response)</option>
+                  <option value="llama-3.1-8b-instant">Llama 3.1 8B Instant (Recommended — Fastest & Universal Free Tier)</option>
+                  <option value="llama-3.3-70b-versatile">Llama 3.3 70B Versatile (Deep Reasoning)</option>
+                  <option value="llama-3.1-70b-versatile">Llama 3.1 70B Versatile</option>
+                  <option value="llama3-70b-8192">Llama 3 70B (8192 Context)</option>
+                  <option value="llama3-8b-8192">Llama 3 8B (8192 Context)</option>
                   <option value="mixtral-8x7b-32768">Mixtral 8x7B (32k Context Window)</option>
+                  <option value="gemma2-9b-it">Gemma 2 9B IT</option>
+                  {availableGroqModels
+                    .filter(m => !['llama-3.1-8b-instant', 'llama-3.3-70b-versatile', 'llama-3.1-70b-versatile', 'llama3-70b-8192', 'llama3-8b-8192', 'mixtral-8x7b-32768', 'gemma2-9b-it'].includes(m))
+                    .map(m => (
+                      <option key={m} value={m}>{m} (Detected on your Groq key)</option>
+                    ))}
                 </>
               )}
 

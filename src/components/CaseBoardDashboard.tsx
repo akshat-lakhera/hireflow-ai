@@ -9,16 +9,17 @@ import {
   Sparkles, 
   Trash2, 
   Users, 
-  Briefcase,
-  FileSpreadsheet,
-  PanelLeft,
-  PanelRight,
-  ChevronLeft,
-  ChevronRight,
+  Briefcase, 
+  FileSpreadsheet, 
+  PanelLeft, 
+  PanelRight, 
+  ChevronLeft, 
+  ChevronRight, 
   Bot, 
   Database, 
-  Scale,
-  Zap
+  Scale, 
+  Zap,
+  Mail
 } from 'lucide-react';
 import { AiService } from '../services/aiApi';
 import { RecruiterAgentCopilot } from './RecruiterAgentCopilot';
@@ -36,7 +37,8 @@ interface CaseBoardDashboardProps {
   onOpenAiSettings: () => void;
   onOpenDatabaseSettings?: () => void;
   onOpenAutonomousScreener?: () => void;
-  onLoadSingleDemoCase: () => void;
+  onOpenGmailSettings?: () => void;
+  onOpenEmailApproval?: (candidate: CandidateCaseFile) => void;
   onClearBoard: () => void;
   onSetReviewMode: (mode: ReviewMode) => void;
   onAddNote: (candidateId: string, noteText: string) => void;
@@ -60,7 +62,8 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
   onOpenAiSettings,
   onOpenDatabaseSettings,
   onOpenAutonomousScreener,
-  onLoadSingleDemoCase,
+  onOpenGmailSettings,
+  onOpenEmailApproval,
   onClearBoard,
   onSetReviewMode,
   onAddNote,
@@ -280,6 +283,17 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
               </span>
             </button>
           )}
+
+          {onOpenGmailSettings && (
+            <button
+              onClick={onOpenGmailSettings}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors shadow-2xs"
+              title="Gmail API & Automated Candidate Sync Settings"
+            >
+              <Mail className="w-3.5 h-3.5 text-indigo-600" />
+              <span className="text-[11px] font-medium hidden sm:inline">Gmail Sync</span>
+            </button>
+          )}
         </div>
 
 
@@ -325,15 +339,7 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
             <span className="hidden sm:inline">Add Candidate</span>
           </button>
 
-          {candidates.length === 0 ? (
-            <button
-              onClick={onLoadSingleDemoCase}
-              className="px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors"
-              title="Load demo case"
-            >
-              Demo
-            </button>
-          ) : (
+          {candidates.length > 0 && (
             <button
               onClick={onClearBoard}
               className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-100 transition-colors"
