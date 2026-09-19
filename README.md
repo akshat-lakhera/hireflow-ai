@@ -1,10 +1,13 @@
-﻿# TalentDossier â€” Autonomous AI Recruiter Agent
+# TalentDossier â€” Autonomous AI Recruiter Agent
 > **Agentic AI Hackathon 2026 Submission**  
 > *From raw resume to hiring decision, autonomously â€” with humans in the loop at exactly the right moment.*
 
 [![Build](https://github.com/akshat-lakhera/hireflow-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/akshat-lakhera/hireflow-ai/actions/workflows/ci.yml)
 [![Deploy](https://github.com/akshat-lakhera/hireflow-ai/actions/workflows/deploy.yml/badge.svg)](https://github.com/akshat-lakhera/hireflow-ai/actions/workflows/deploy.yml)
 [![Release](https://img.shields.io/github/v/release/akshat-lakhera/hireflow-ai?color=6366f1&label=Release)](https://github.com/akshat-lakhera/hireflow-ai/releases/latest)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Vercel-black?logo=vercel)](https://agentic-ai-hackathon-seven.vercel.app)
+
+> 🌐 **Live Demo**: [https://agentic-ai-hackathon-seven.vercel.app](https://agentic-ai-hackathon-seven.vercel.app)
 
 ---
 
