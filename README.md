@@ -19,24 +19,37 @@ TalentDossier is an enterprise-grade recruiting intelligence platform that trans
 - **Differential Qualification Mapping**: Inspect overlapping strengths, unique competencies, and critical gaps between candidates.
 - **Direct Dossier Inspection**: Switch directly into any candidate's full executive file with one click.
 
-### 3. Recruiter Agent Copilot (Zero Dummy Answers)
-- **Honest AI State Engine**: Clear distinction between live LLM analysis and offline mode. Never displays hardcoded or fabricated candidate assessments.
-- **Rich Inline Markdown**: Styled bolding, monospace code blocks, structured lists, headers, and callouts.
-- **Grounded Inline Citations**: Every claim made by the Copilot links directly to candidate evidence in the active dossier.
-- **Multi-Provider Support**: Compatible with Groq (`llama-3.3-70b-versatile`), Google Gemini (`gemini-1.5-flash`), and OpenAI (`gpt-4o-mini`).
-- **Encrypted Local Storage**: API keys are salted and obfuscated in browser memory with optional session-only storage.
+### 3. Autonomous Screener Agent (Decisive Pipeline Triage)
+- **Multi-Step Autonomous Pipeline**: Executes a 4-step pipeline: `Ingest Blueprint` → `Evidence Triage` → `Decisive Classification` → `Audit Commit`.
+- **Decisive Status Progression**: Autonomously advances candidates to `Interview Ready`, holds for `Needs Review`, or screens out to `Rejected` based on grounded must-have skills and verified project evidence.
+- **Dual-Engine Transparent Attribution**:
+  - *Frontier LLM Agent Mode*: Live reasoning via Groq (`llama-3.3-70b-versatile`), Google Gemini (`gemini-1.5-flash`), or OpenAI (`gpt-4o-mini`) evaluates actual candidate dossiers.
+  - *Local Deterministic Rule Engine*: Client-side verification fallback with 100% honest attribution (zero fabricated claims).
+- **Interactive Agent Dispatch Modal**: Real-time progress radar, metric triage cards, executive synthesis, and candidate action receipts.
 
-### 4. Structured Interview Kit with TTS & Speech-to-Text
+### 4. Recruiter Agent Copilot (Workspace Tool Execution)
+- **Autonomous Tool Calling**: Copilot directly executes 7 tools on the workspace screen:
+  1. `compare_candidates`: Launches side-by-side comparison matrix.
+  2. `update_candidate_status`: Promotes or rejects candidates in real time.
+  3. `select_candidate`: Loads dossier directly into view.
+  4. `open_interview_kit`: Launches the structured technical interview kit.
+  5. `add_note`: Appends recruiter intelligence notes to candidate files.
+  6. `filter_pipeline`: Filters candidates by skill or keyword in real time.
+  7. `autonomous_screen_pipeline`: Dispatches the Autonomous Screener Agent.
+- **Live ReAct Execution Receipts**: Every tool execution displays an interactive receipt badge with the agent's thought process, parameters, and live UI status.
+- **Zero-Dummy Authenticity**: Refuses to output fake answers in offline mode, directing the recruiter to add a free API key or use the local deterministic screener.
+
+### 5. Structured Interview Kit with TTS & Speech-to-Text
 - **Confidential Rubric Protection**: Audio reading (TTS) speaks only the interview question, never leaking interviewer rubrics or internal scoring criteria.
 - **Live Voice Dictation (STT)**: Web Speech API integration captures interviewer notes and candidate answers in real time.
 - **Auto-Synced Answer Persistence**: Answers and interviewer evaluations persist directly to the database and survive page refreshes.
 
-### 5. Dual-Layer Storage & Hybrid Vector Engine
+### 6. Dual-Layer Storage & Hybrid Vector Engine
 - **Local IndexedDB Vector Store**: Zero setup required. Every candidate is automatically embedded into a 384-dimensional dense vector space for sub-millisecond semantic search.
 - **Supabase Cloud Sync (pgvector)**: Full enterprise database support with automated background sync, vector similarity search (`match_candidates` RPC), and schema migration script (`public/schema.sql`).
 - **Zero Data Loss Guarantee**: Automatic migration ensures candidate records and role configurations remain intact across updates.
 
-### 6. Role Blueprint Studio
+### 7. Role Blueprint Studio
 - **Role Parameterization**: Define required vs. preferred skills, minimum experience thresholds, location flexibility, and senior-level expectations.
 - **Automated Resume Parsing**: Upload PDFs or paste resume text to extract skills, project history, and experience metrics automatically.
 - **Persistent Role State**: Custom role blueprints persist across sessions.
