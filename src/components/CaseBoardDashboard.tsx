@@ -20,9 +20,12 @@ import {
   Scale, 
   Zap,
   Mail,
-  Settings
+  Settings,
+  Globe,
+  Radio
 } from 'lucide-react';
 import { AiService } from '../services/aiApi';
+import { AgentLoopRuntime } from '../services/agentLoopRuntime';
 import { RecruiterAgentCopilot } from './RecruiterAgentCopilot';
 import { ResumeViewerModal } from './ResumeViewerModal';
 
@@ -49,6 +52,8 @@ interface CaseBoardDashboardProps {
   onBackToLanding: () => void;
   onReevaluateWithAi?: (candidate: CandidateCaseFile) => void;
   isAiEvaluating?: boolean;
+  onOpenAgentOps?: () => void;
+  onOpenCareerPortal?: () => void;
 }
 
 export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
@@ -73,10 +78,22 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
   onOpenCompare,
   onBackToLanding,
   onReevaluateWithAi,
-  isAiEvaluating
+  isAiEvaluating,
+  onOpenAgentOps,
+  onOpenCareerPortal
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedForCompare, setSelectedForCompare] = useState<string[]>([]);
+  const [daemonActive, setDaemonActive] = useState(false);
+  const [stagedCount, setStagedCount] = useState(0);
+
+  React.useEffect(() => {
+    const unsub = AgentLoopRuntime.subscribe(state => {
+      setDaemonActive(state.daemonActive);
+      setStagedCount(state.stagedDecisions.length);
+    });
+    return unsub;
+  }, []);
 
   // Resizable Panels State (like Antigravity IDE / VS Code)
   const [leftWidth, setLeftWidth] = useState<number>(() => {
@@ -193,20 +210,46 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
   const aiConfig = AiService.getConfig();
   const isAiActive = AiService.isConfigured();
 
+  const [compareNotice, setCompareNotice] = useState<string | null>(null);
+
+  // Auto-clean compare selection when a candidate is removed (e.g. rejected)
+  React.useEffect(() => {
+    const validIds = new Set(candidates.map(c => c.id));
+    setSelectedForCompare(prev => {
+      const cleaned = prev.filter(id => validIds.has(id));
+      if (cleaned.length !== prev.length) {
+        // A candidate was removed from pipeline while selected for compare
+        if (cleaned.length < prev.length) {
+          setCompareNotice('A selected candidate was removed from the pipeline and deselected from comparison.');
+          setTimeout(() => setCompareNotice(null), 3500);
+        }
+      }
+      return cleaned;
+    });
+  }, [candidates]);
+
   const toggleCompare = (candidateId: string) => {
-    setSelectedForCompare(prev => 
-      prev.includes(candidateId)
-        ? prev.filter(id => id !== candidateId)
-        : [...prev, candidateId]
-    );
+    setSelectedForCompare(prev => {
+      if (prev.includes(candidateId)) {
+        return prev.filter(id => id !== candidateId);
+      }
+      if (prev.length >= 2) {
+        // Enforce maximum of exactly 2 candidates
+        setCompareNotice('Comparison matrix supports 2 candidates at a time. Replaced earliest selection.');
+        setTimeout(() => setCompareNotice(null), 3500);
+        return [prev[1], candidateId];
+      }
+      return [...prev, candidateId];
+    });
   };
 
   const handleLaunchCompare = () => {
-    const compareList = candidates.filter(c => selectedForCompare.includes(c.id));
+    const compareList = candidates.filter(c => selectedForCompare.slice(0, 2).includes(c.id));
     if (compareList.length >= 2) {
-      onOpenCompare(compareList);
+      onOpenCompare(compareList.slice(0, 2));
     }
   };
+
 
   return (
     <div className="h-screen flex flex-col bg-slate-50 text-slate-900 font-sans overflow-hidden">
@@ -290,6 +333,41 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
             </button>
           )}
 
+          {/* Autonomous AI Agent Ops Center Button */}
+          {onOpenAgentOps && (
+            <button
+              onClick={onOpenAgentOps}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer ${
+                daemonActive
+                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100'
+                  : 'bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100'
+              }`}
+              title="Autonomous AI Agent Operations Center (Continuous Loop, Inflow & Human Review Deck)"
+            >
+              <Bot className="w-3.5 h-3.5 text-indigo-600" />
+              <span className="hidden sm:inline">Autonomous Agent</span>
+              {stagedCount > 0 ? (
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-indigo-600 text-white animate-pulse">
+                  {stagedCount}
+                </span>
+              ) : daemonActive ? (
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              ) : null}
+            </button>
+          )}
+
+          {/* Public Candidate Career Portal Button */}
+          {onOpenCareerPortal && (
+            <button
+              onClick={onOpenCareerPortal}
+              className="px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+              title="Open Public Candidate Career Portal (/apply)"
+            >
+              <Globe className="w-3.5 h-3.5 text-slate-500" />
+              <span className="hidden md:inline">Career Portal</span>
+            </button>
+          )}
+
           {/* Autonomous Screener Agent */}
           {onOpenAutonomousScreener && (
             <button
@@ -331,6 +409,32 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
                 onMouseLeave={() => setIsSettingsMenuOpen(false)}
               >
                 <div className="py-1">
+                  {onOpenAgentOps && (
+                    <button
+                      onClick={() => { setIsSettingsMenuOpen(false); onOpenAgentOps(); }}
+                      className="w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <Bot className="w-4 h-4 text-indigo-600 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-slate-800">Autonomous Agent Ops</div>
+                        <div className="text-[10px] text-slate-400 truncate">Continuous loop & human review deck</div>
+                      </div>
+                    </button>
+                  )}
+
+                  {onOpenCareerPortal && (
+                    <button
+                      onClick={() => { setIsSettingsMenuOpen(false); onOpenCareerPortal(); }}
+                      className="w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <Globe className="w-4 h-4 text-indigo-600 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-slate-800">Career Portal (/apply)</div>
+                        <div className="text-[10px] text-slate-400 truncate">Candidate application page</div>
+                      </div>
+                    </button>
+                  )}
+
                   {onOpenGmailSettings && (
                     <button
                       onClick={() => { setIsSettingsMenuOpen(false); onOpenGmailSettings(); }}
@@ -489,23 +593,23 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
                 )}
               </div>
 
-              {/* Docked Comparison Tray in Left Pipeline Panel */}
+              {/* Docked Comparison Tray in Left Pipeline Panel (Strict 2 candidates max) */}
               {selectedForCompare.length > 0 && (
                 <div className="mt-2.5 p-2.5 bg-indigo-50/95 border border-indigo-200 rounded-xl flex items-center justify-between gap-2 shadow-sm shrink-0 animate-in fade-in duration-150">
                   <div className="min-w-0">
                     <div className="text-[11px] font-bold text-indigo-900 flex items-center gap-1.5">
                       <Scale className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                      <span>{selectedForCompare.length} selected</span>
+                      <span>{selectedForCompare.length} / 2 selected</span>
                     </div>
                     <p className="text-[10px] text-indigo-700 truncate mt-0.5">
-                      {selectedForCompare.length >= 2 ? 'Ready for matrix comparison' : 'Pick 1 more to compare'}
+                      {compareNotice || (selectedForCompare.length >= 2 ? '2 candidates ready for matrix comparison' : 'Pick 1 more to compare')}
                     </p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <button
                       type="button"
                       onClick={() => setSelectedForCompare([])}
-                      className="px-2 py-1 text-[10px] font-medium text-slate-500 hover:text-slate-800 rounded transition-colors"
+                      className="px-2 py-1 text-[10px] font-medium text-slate-500 hover:text-slate-800 rounded transition-colors cursor-pointer"
                     >
                       Clear
                     </button>
@@ -515,7 +619,7 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
                       disabled={selectedForCompare.length < 2}
                       className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg transition-colors ${
                         selectedForCompare.length >= 2
-                          ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs'
+                          ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs cursor-pointer'
                           : 'bg-indigo-200 text-indigo-400 cursor-not-allowed'
                       }`}
                     >
@@ -533,14 +637,12 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
                 setLeftWidth(280);
                 localStorage.setItem('talentdossier_left_width', '280');
               }}
-              className={`w-2 -ml-1 cursor-col-resize flex items-center justify-center group relative shrink-0 z-20 transition-colors ${
-                isDraggingLeft ? 'bg-indigo-500' : 'bg-transparent hover:bg-indigo-500/20'
+              className={`w-1 hover:w-1.5 active:w-1.5 transition-all cursor-col-resize z-10 flex items-center justify-center group shrink-0 ${
+                isDraggingLeft ? 'bg-indigo-600 w-1.5' : 'bg-transparent hover:bg-indigo-400'
               }`}
-              title="Drag to resize (Double-click to reset, Drag left to collapse)"
+              title="Drag to resize pipeline panel (Double click to reset)"
             >
-              <div className={`w-0.5 h-8 rounded-full transition-colors ${
-                isDraggingLeft ? 'bg-white' : 'bg-slate-300 group-hover:bg-indigo-500'
-              }`} />
+              <div className="h-8 w-0.5 rounded-full bg-slate-300 group-hover:bg-indigo-600 transition-colors" />
             </div>
           </>
         )}
@@ -556,6 +658,7 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
               onAddNote={onAddNote}
               onReevaluateWithAi={onReevaluateWithAi ? () => onReevaluateWithAi(selectedCandidate) : undefined}
               isAiEvaluating={isAiEvaluating}
+              onOpenResumeViewer={() => setResumeViewerCandidate(selectedCandidate)}
             />
           ) : (
             <div className="flex-1 bg-white rounded-xl border border-slate-200 flex flex-col items-center justify-center p-8 text-center space-y-3">

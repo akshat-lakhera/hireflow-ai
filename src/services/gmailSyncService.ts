@@ -1,8 +1,11 @@
 import { CandidateCaseFile, RoleSetup } from '../types';
+import emailjs from '@emailjs/browser';
 
 export interface GmailConfig {
-  provider: 'gmail' | 'sendgrid' | 'smtp';
-  apiKey: string;
+  provider: 'gmail' | 'sendgrid' | 'smtp' | 'emailjs';
+  apiKey: string;           // EmailJS Public Key (or legacy SMTP password)
+  serviceId?: string;       // EmailJS Service ID
+  templateId?: string;      // EmailJS Template ID
   senderEmail: string;
   senderName: string;
   autoPromptOnSync: boolean;
@@ -24,6 +27,14 @@ export interface EmailDispatchLog {
 const GMAIL_STORAGE_KEY = 'talentdossier_gmail_config_secure';
 const GMAIL_LOGS_KEY = 'talentdossier_gmail_logs';
 const SALT = 'td_gmail_sec_v1';
+
+// Default EmailJS credentials — users can override in Settings
+// To use: create a free account at https://emailjs.com
+// Service: Gmail → Service ID = "service_xxxxxxx"
+// Template: create one with {{to_email}}, {{to_name}}, {{subject}}, {{message}} variables
+// Public Key: from Account > API Keys
+const DEFAULT_EMAILJS_SERVICE_ID = '';   // Set in Settings UI
+const DEFAULT_EMAILJS_TEMPLATE_ID = '';  // Set in Settings UI
 
 function obfuscate(key: string): string {
   if (!key) return '';
@@ -62,8 +73,10 @@ export class GmailSyncService {
       if (saved) {
         const parsed = JSON.parse(saved);
         return {
-          provider: parsed.provider || 'gmail',
+          provider: parsed.provider || 'emailjs',
           apiKey: parsed.isObfuscated && parsed.apiKey ? deobfuscate(parsed.apiKey) : parsed.apiKey || '',
+          serviceId: parsed.serviceId || DEFAULT_EMAILJS_SERVICE_ID,
+          templateId: parsed.templateId || DEFAULT_EMAILJS_TEMPLATE_ID,
           senderEmail: parsed.senderEmail || 'recruiting@talentdossier.ai',
           senderName: parsed.senderName || 'Talent Acquisition Team',
           autoPromptOnSync: parsed.autoPromptOnSync !== false
@@ -74,8 +87,10 @@ export class GmailSyncService {
     }
 
     return {
-      provider: 'gmail',
+      provider: 'emailjs',
       apiKey: '',
+      serviceId: DEFAULT_EMAILJS_SERVICE_ID,
+      templateId: DEFAULT_EMAILJS_TEMPLATE_ID,
       senderEmail: 'recruiting@talentdossier.ai',
       senderName: 'Talent Acquisition Team',
       autoPromptOnSync: true
@@ -104,32 +119,39 @@ export class GmailSyncService {
 
   public static isConfigured(): boolean {
     const cfg = this.getConfig();
+    // Needs at minimum a public key (EmailJS) or legacy SMTP password
     return Boolean(cfg.apiKey && cfg.apiKey.trim().length >= 8);
   }
 
   /**
-   * Test the Gmail API connection or App Password
+   * Test EmailJS connection using the provided credentials.
+   * Sends a silent test ping via EmailJS init — no actual email sent.
    */
   public static async testConnection(config: GmailConfig): Promise<{ success: boolean; message: string }> {
     if (!config.apiKey.trim()) {
-      return { success: false, message: 'Please enter a valid Gmail API key or App Password.' };
+      return { success: false, message: 'API key / Public Key is required. Get it free at emailjs.com.' };
     }
-
-    // Simulate authentic API ping to Google Mail API / SMTP endpoint
-    await new Promise(r => setTimeout(r, 900));
-
     if (config.apiKey.trim().length < 8) {
-      return { success: false, message: 'Invalid key length. Gmail App Passwords are 16 characters or OAuth Bearer token.' };
+      return { success: false, message: 'Invalid key. EmailJS Public Keys are typically 20+ chars.' };
     }
 
-    return {
-      success: true,
-      message: `Successfully authenticated with Gmail (${config.senderEmail || 'recruiting@talentdossier.ai'}). Automated mail dispatch ready.`
-    };
+    // For EmailJS: validate by initializing the SDK
+    // A real send test would consume quota — we just validate the key format here
+    // and attempt init. Actual dispatch will confirm if it works.
+    try {
+      emailjs.init({ publicKey: config.apiKey.trim() });
+      // If the key is valid format, we can proceed
+      return {
+        success: true,
+        message: `EmailJS initialized with public key (...${config.apiKey.trim().slice(-4)}). Credentials saved. Send a test email to verify.`
+      };
+    } catch (e: any) {
+      return { success: false, message: `EmailJS init failed: ${e.message || 'Unknown error'}` };
+    }
   }
 
   /**
-   * Generate an authentic, tailored candidate email based on status and evidence
+   * Generate authentic, tailored candidate email based on status and evidence
    */
   public static generateCandidateEmail(
     candidate: CandidateCaseFile,
@@ -138,72 +160,78 @@ export class GmailSyncService {
   ): { subject: string; body: string; to: string } {
     const to = candidate.email || `${candidate.name.toLowerCase().replace(/\s+/g, '.')}@candidate-mail.com`;
     const firstName = candidate.name.split(' ')[0] || candidate.name;
-    const topSkills = candidate.matchedSkills.slice(0, 3).join(', ') || 'distributed systems background';
+    const topSkills = candidate.matchedSkills.slice(0, 3).join(', ') || 'your technical background';
 
-    if (targetStatus === 'Interview Ready') {
-      const subject = `Invitation to Technical Interview: ${role.title} at TalentDossier`;
-      const body = `Dear ${firstName},
+    if (targetStatus === 'Passed Screen' || targetStatus === 'Offer Extended') {
+      return {
+        subject: `Congratulations! You've been selected — ${role.title}`,
+        body: `Dear ${firstName},
 
-Thank you for your interest in the ${role.title} position on our ${role.teamType} team.
+We are thrilled to inform you that you have been selected for the position of ${role.title}!
 
-Our engineering leadership and autonomous talent screening team reviewed your portfolio and were exceptionally impressed by your verified achievements in ${topSkills}${candidate.proofLine ? ` (${candidate.proofLine})` : ''}.
+Our evaluation team was particularly impressed by your demonstrated experience in ${topSkills}${candidate.proofLine ? ` — ${candidate.proofLine}` : ''}.
 
-We would love to invite you to our Structured Technical Interview. During this discussion, we will explore:
-${(candidate.evidenceMap || []).slice(0, 2).map(ev => `• ${ev.requirement} (Deep dive into your architectural approach)`).join('\n')}
-• System design, concurrency primitives, and scale bottlenecks
-• Your experience leading resilient infrastructure
+Our talent acquisition team will follow up shortly with your formal offer documentation, compensation details, and onboarding next steps.
 
-Please choose a 45-minute window that works best for your schedule using our engineering calendar:
-https://talentdossier.ai/schedule/${candidate.id}
+Congratulations once again!
+
+Warm regards,
+${role.teamType ? role.teamType + ' — ' : ''}Talent Acquisition Team`,
+        to
+      };
+    } else if (targetStatus === 'Interview Ready') {
+      return {
+        subject: `Interview Invitation: ${role.title}`,
+        body: `Dear ${firstName},
+
+Thank you for your interest in the ${role.title} position.
+
+After reviewing your background — particularly your work in ${topSkills} — we'd love to invite you to a structured technical interview.
+
+Please reply to this email with your availability for a 45-minute discussion. We'll explore your experience in depth and give you a chance to ask questions about the role.
 
 We look forward to speaking with you!
 
 Warm regards,
-
-Talent Acquisition Team
-TalentDossier Engineering Platform
-${to}`;
-
-      return { subject, body, to };
+Talent Acquisition Team`,
+        to
+      };
     } else if (targetStatus === 'Needs Review') {
-      const subject = `Application Update: ${role.title} at TalentDossier`;
-      const body = `Dear ${firstName},
+      return {
+        subject: `Application Update: ${role.title}`,
+        body: `Dear ${firstName},
 
 Thank you for applying for the ${role.title} role.
 
-Your background in ${topSkills} has passed our initial screening threshold. Our hiring committee is currently reviewing your technical dossier and portfolio artifacts for specialized alignment with our current platform priorities.
+Your background in ${topSkills} has caught our attention. Our hiring committee is currently completing their detailed review of your profile.
 
-We will provide a definitive update on next steps within 2 business days. If you have any updated links or code samples to share in the meantime, please feel free to reply directly to this email.
+We'll have a definitive update for you within 2 business days.
 
 Best regards,
-
-Talent Acquisition Team
-TalentDossier Engineering Platform`;
-
-      return { subject, body, to };
+Talent Acquisition Team`,
+        to
+      };
     } else {
-      const subject = `Thank You for Your Application: ${role.title} at TalentDossier`;
-      const body = `Dear ${firstName},
+      // Rejection
+      return {
+        subject: `Update on your application — ${role.title}`,
+        body: `Dear ${firstName},
 
-Thank you for taking the time to share your background and apply for the ${role.title} role.
+Thank you for taking the time to apply for the ${role.title} position.
 
-While our team was impressed with your experience, we have decided to move forward with candidates whose specific hands-on experience more closely aligns with our immediate requirements for ${role.mustHaveSkills.slice(0, 2).join(' and ')}.
+While we were impressed by your background, we've decided to move forward with candidates whose experience more closely matches our immediate requirements.
 
-We appreciate your interest in TalentDossier, and we will keep your executive dossier active in our database for upcoming infrastructure roles that match your strengths.
+We genuinely appreciate your interest and will keep your profile on file for future opportunities.
 
-Wishing you continued success in your search.
-
-Sincerely,
-
-Talent Acquisition Team
-TalentDossier Engineering Platform`;
-
-      return { subject, body, to };
+Wishing you the very best,
+Talent Acquisition Team`,
+        to
+      };
     }
   }
 
   /**
-   * Dispatch candidate email via Gmail and record audit log
+   * Dispatch email using EmailJS (real send) or log as drafted if not configured.
    */
   public static async dispatchEmail(
     candidate: CandidateCaseFile,
@@ -212,11 +240,42 @@ TalentDossier Engineering Platform`;
   ): Promise<EmailDispatchLog> {
     const config = this.getConfig();
     const recipientEmail = candidate.email || `${candidate.name.toLowerCase().replace(/\s+/g, '.')}@candidate-mail.com`;
+    const firstName = candidate.name.split(' ')[0] || candidate.name;
+    const receiptId = `msg-ejs-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 
-    // Simulated network transmission through Gmail API
-    await new Promise(r => setTimeout(r, 1100));
+    let status: 'sent' | 'drafted' | 'failed' = 'drafted';
 
-    const receiptId = `msg-gm-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+    // Attempt real send via EmailJS if credentials are configured
+    if (config.apiKey && config.serviceId && config.templateId) {
+      try {
+        emailjs.init({ publicKey: config.apiKey.trim() });
+
+        await emailjs.send(
+          config.serviceId.trim(),
+          config.templateId.trim(),
+          {
+            to_email: recipientEmail,
+            to_name: firstName,
+            from_name: config.senderName || 'Talent Acquisition Team',
+            reply_to: config.senderEmail || 'recruiting@talentdossier.ai',
+            subject: subject,
+            message: body,
+            // Extra context fields for richer templates
+            candidate_name: candidate.name,
+            candidate_role: candidate.currentRole || '',
+            match_score: String(candidate.matchScore || ''),
+          }
+        );
+        status = 'sent';
+      } catch (e: any) {
+        console.warn('EmailJS dispatch error:', e);
+        status = 'failed';
+      }
+    } else if (config.apiKey && !config.serviceId) {
+      // Public key set but service/template not — still mark as drafted
+      // This means the user set the key but didn't finish EmailJS template setup
+      status = 'drafted';
+    }
 
     const log: EmailDispatchLog = {
       id: `log-${Date.now()}`,
@@ -225,12 +284,12 @@ TalentDossier Engineering Platform`;
       recipientEmail,
       subject,
       body,
-      status: 'sent',
+      status,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
       deliveryReceiptId: receiptId
     };
 
-    // Save to local logs
+    // Save to local dispatch log
     const existing = this.getEmailLogs();
     localStorage.setItem(GMAIL_LOGS_KEY, JSON.stringify([log, ...existing].slice(0, 50)));
 

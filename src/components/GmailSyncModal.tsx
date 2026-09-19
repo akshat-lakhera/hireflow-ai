@@ -29,8 +29,10 @@ export const GmailSyncModal: React.FC<GmailSyncModalProps> = ({
   onConfigSaved
 }) => {
   const [config, setConfig] = useState<GmailConfig>({
-    provider: 'gmail',
+    provider: 'emailjs',
     apiKey: '',
+    serviceId: '',
+    templateId: '',
     senderEmail: 'recruiting@talentdossier.ai',
     senderName: 'Talent Acquisition Team',
     autoPromptOnSync: true
@@ -118,7 +120,7 @@ export const GmailSyncModal: React.FC<GmailSyncModalProps> = ({
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            Email Sync Settings
+            Email Setup
           </button>
           <button
             onClick={() => setActiveTab('outbox')}
@@ -128,7 +130,7 @@ export const GmailSyncModal: React.FC<GmailSyncModalProps> = ({
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <span>Outbox / Dispatched Logs</span>
+            <span>Outbox / Dispatched</span>
             {logs.length > 0 && (
               <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700">
                 {logs.length}
@@ -141,49 +143,29 @@ export const GmailSyncModal: React.FC<GmailSyncModalProps> = ({
         <div className="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
           {activeTab === 'settings' ? (
             <>
-              {/* Provider cards */}
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1.5">Email Delivery Provider</label>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setConfig(prev => ({ ...prev, provider: 'gmail' }))}
-                    className={`p-2.5 rounded-xl border text-left transition-all ${
-                      config.provider === 'gmail'
-                        ? 'border-indigo-600 bg-indigo-50/70 ring-1 ring-indigo-600 text-indigo-950 font-bold'
-                        : 'border-slate-200 bg-white hover:border-slate-300 text-slate-700'
-                    }`}
+              {/* EmailJS Setup Guide Banner */}
+              <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-xs space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="font-bold text-indigo-900 flex items-center gap-1.5">
+                    <Mail className="w-3.5 h-3.5 text-indigo-600" />
+                    EmailJS Setup (Free — 200 emails/month)
+                  </div>
+                  <a
+                    href="https://www.emailjs.com/docs/introduction/how-does-emailjs-work/"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-indigo-600 hover:underline flex items-center gap-1 font-medium"
                   >
-                    <div className="font-bold text-xs">Gmail API</div>
-                    <div className="text-[10px] text-slate-500 mt-0.5">Google Workspace</div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setConfig(prev => ({ ...prev, provider: 'sendgrid' }))}
-                    className={`p-2.5 rounded-xl border text-left transition-all ${
-                      config.provider === 'sendgrid'
-                        ? 'border-indigo-600 bg-indigo-50/70 ring-1 ring-indigo-600 text-indigo-950 font-bold'
-                        : 'border-slate-200 bg-white hover:border-slate-300 text-slate-700'
-                    }`}
-                  >
-                    <div className="font-bold text-xs">SendGrid</div>
-                    <div className="text-[10px] text-slate-500 mt-0.5">Twilio Delivery</div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setConfig(prev => ({ ...prev, provider: 'smtp' }))}
-                    className={`p-2.5 rounded-xl border text-left transition-all ${
-                      config.provider === 'smtp'
-                        ? 'border-indigo-600 bg-indigo-50/70 ring-1 ring-indigo-600 text-indigo-950 font-bold'
-                        : 'border-slate-200 bg-white hover:border-slate-300 text-slate-700'
-                    }`}
-                  >
-                    <div className="font-bold text-xs">Custom SMTP</div>
-                    <div className="text-[10px] text-slate-500 mt-0.5">Direct Relay</div>
-                  </button>
+                    <ExternalLink className="w-3 h-3" />
+                    Guide
+                  </a>
                 </div>
+                <ol className="space-y-1 text-indigo-800 pl-3 leading-relaxed">
+                  <li>1. Create free account at <a href="https://emailjs.com" target="_blank" rel="noreferrer" className="underline font-mono">emailjs.com</a></li>
+                  <li>2. Add Email Service (Gmail) → copy <strong>Service ID</strong></li>
+                  <li>3. Create Email Template with <code className="bg-indigo-100 px-1 rounded">{'{{to_email}}'}</code> <code className="bg-indigo-100 px-1 rounded">{'{{subject}}'}</code> <code className="bg-indigo-100 px-1 rounded">{'{{message}}'}</code> → copy <strong>Template ID</strong></li>
+                  <li>4. Account → API Keys → copy <strong>Public Key</strong></li>
+                </ol>
               </div>
 
               {/* Sender Info */}
@@ -194,12 +176,12 @@ export const GmailSyncModal: React.FC<GmailSyncModalProps> = ({
                     type="text"
                     value={config.senderName}
                     onChange={e => setConfig(prev => ({ ...prev, senderName: e.target.value }))}
-                    placeholder="e.g. Talent Acquisition"
+                    placeholder="Talent Acquisition Team"
                     className="w-full text-xs bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Sender Email</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Reply-to Email</label>
                   <input
                     type="email"
                     value={config.senderEmail}
@@ -210,35 +192,48 @@ export const GmailSyncModal: React.FC<GmailSyncModalProps> = ({
                 </div>
               </div>
 
-              {/* API Key / App Password */}
+              {/* EmailJS Service ID */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">EmailJS Service ID</label>
+                <input
+                  type="text"
+                  value={config.serviceId || ''}
+                  onChange={e => setConfig(prev => ({ ...prev, serviceId: e.target.value }))}
+                  placeholder="service_xxxxxxx"
+                  className="w-full text-xs font-mono bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              {/* EmailJS Template ID */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">EmailJS Template ID</label>
+                <input
+                  type="text"
+                  value={config.templateId || ''}
+                  onChange={e => setConfig(prev => ({ ...prev, templateId: e.target.value }))}
+                  placeholder="template_xxxxxxx"
+                  className="w-full text-xs font-mono bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              {/* EmailJS Public Key */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="font-semibold text-slate-700">
-                    {config.provider === 'gmail' 
-                      ? 'Gmail App Password / OAuth Token' 
-                      : config.provider === 'sendgrid' 
-                      ? 'SendGrid API Key' 
-                      : 'SMTP Password'}
-                  </label>
+                  <label className="font-semibold text-slate-700">EmailJS Public Key</label>
                   {config.apiKey && (
                     <button
                       type="button"
                       onClick={handleClearKey}
                       className="text-rose-600 hover:text-rose-700 font-medium text-[11px]"
                     >
-                      Remove Key
+                      Remove
                     </button>
                   )}
                 </div>
-
                 <div className="relative">
                   <input
                     type={showApiKey ? 'text' : 'password'}
-                    placeholder={
-                      config.provider === 'gmail'
-                        ? 'xxxx xxxx xxxx xxxx (Google App Password)'
-                        : 'SG.xxxxxxxx...'
-                    }
+                    placeholder="Your EmailJS Public Key (Account > API Keys)"
                     value={config.apiKey}
                     onChange={e => {
                       setConfig(prev => ({ ...prev, apiKey: e.target.value }));
@@ -256,26 +251,8 @@ export const GmailSyncModal: React.FC<GmailSyncModalProps> = ({
                   </button>
                 </div>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  Generated via Google Account &gt; Security &gt; 2-Step Verification &gt; App Passwords.
+                  Stored locally with obfuscation. Never sent to any server except EmailJS.
                 </p>
-              </div>
-
-              {/* Automation prompt toggle */}
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-                <label className="flex items-start gap-2.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={config.autoPromptOnSync}
-                    onChange={e => setConfig(prev => ({ ...prev, autoPromptOnSync: e.target.checked }))}
-                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <div>
-                    <span className="font-semibold text-slate-900 block">Prompt HR for Email Approval on Candidate Sync</span>
-                    <span className="text-slate-500 text-[11px] block mt-0.5">
-                      When the Autonomous Screener or Copilot updates a candidate's status to "Interview Ready", immediately open the preview modal for HR approval.
-                    </span>
-                  </div>
-                </label>
               </div>
 
               {/* Test Status Banner */}

@@ -16,13 +16,15 @@ import { DatabaseSettingsModal } from './components/DatabaseSettingsModal';
 import { AutonomousScreenerModal } from './components/AutonomousScreenerModal';
 import { GmailSyncModal } from './components/GmailSyncModal';
 import { EmailApprovalModal } from './components/EmailApprovalModal';
+import { AutonomousAgentOpsCenter } from './components/AutonomousAgentOpsCenter';
+import { CareerPortalModal } from './components/CareerPortalModal';
+import { AgentLoopRuntime } from './services/agentLoopRuntime';
 import { AiService } from './services/aiApi';
 import { DatabaseService } from './services/databaseService';
-import { GmailSyncService } from './services/gmailSyncService';
 
 interface ToastNotification {
   id: string;
-  type: 'success' | 'error' | 'info';
+  type: 'success' | 'error' | 'info' | 'warning';
   message: string;
 }
 
@@ -57,27 +59,53 @@ export function App() {
   const [isAiSettingsOpen, setIsAiSettingsOpen] = useState(false);
   const [isDatabaseSettingsOpen, setIsDatabaseSettingsOpen] = useState(false);
   const [isAutonomousScreenerOpen, setIsAutonomousScreenerOpen] = useState(false);
+  const [isAgentOpsOpen, setIsAgentOpsOpen] = useState(false);
+  const [isCareerPortalOpen, setIsCareerPortalOpen] = useState(false);
   const [isGmailSyncOpen, setIsGmailSyncOpen] = useState(false);
   const [emailApprovalCandidate, setEmailApprovalCandidate] = useState<CandidateCaseFile | null>(null);
   const [emailApprovalStatus, setEmailApprovalStatus] = useState<CandidateCaseFile['reviewStatus']>('Interview Ready');
+  const [emailNotSentAlert, setEmailNotSentAlert] = useState<{ candidateName: string; recipientEmail: string } | null>(null);
   const [isAiEvaluating, setIsAiEvaluating] = useState(false);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
 
-  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+  const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
     const id = `toast-${Date.now()}`;
     setToasts(prev => [...prev, { id, type, message }]);
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
-    }, 3500);
+    }, 4000);
   };
 
-  // Load real candidates from local IndexedDB vector database on startup
+  // Initialize Autonomous AI Recruiter Agent Loop Runtime
+  useEffect(() => {
+    AgentLoopRuntime.init(role, {
+      onCandidatePersisted: (saved) => {
+        setCandidates(prev => {
+          const exists = prev.some(c => c.id === saved.id);
+          if (exists) {
+            return prev.map(c => c.id === saved.id ? saved : c);
+          }
+          return [saved, ...prev];
+        });
+        setSelectedCandidateId(prev => prev || saved.id);
+      },
+      onCandidateRemoved: (removedId) => {
+        setCandidates(prev => {
+          const filtered = prev.filter(c => c.id !== removedId);
+          setSelectedCandidateId(curr => curr === removedId ? (filtered[0]?.id || '') : curr);
+          return filtered;
+        });
+      }
+    });
+  }, [role]);
+
+  // Load candidates from IndexedDB on startup; seed demo candidates if empty (cold start)
   useEffect(() => {
     DatabaseService.getAllCandidates()
-      .then(loaded => {
-        // Purge any stale sample/demo cases with dummy IDs
-        const realCandidates = (loaded || []).filter(c => 
-          !c.id.startsWith('case-alex-rivera') && 
+      .then(async loaded => {
+        // Filter out old stale IDs from previous sessions
+        const realCandidates = (loaded || []).filter(c =>
+          !c.id.startsWith('case-alex-rivera') &&
           !c.id.startsWith('case-sample-') &&
           !c.id.startsWith('case-maya-lin') &&
           !c.id.startsWith('case-dev-patel') &&
@@ -92,6 +120,97 @@ export function App() {
           }
         });
 
+        // ── Cold-start seed: populate with demo candidates if DB is empty ──
+        const SEED_KEY = 'td_demo_seeded_v2';
+        if (realCandidates.length === 0 && !localStorage.getItem(SEED_KEY)) {
+          const now = new Date().toISOString();
+          const demos: CandidateCaseFile[] = [
+            {
+              id: 'demo-liam-zhang-001',
+              name: 'Liam Zhang',
+              email: 'liam.zhang@example.com',
+              initials: 'LZ',
+              currentRole: 'Senior Backend Engineer',
+              experienceYears: 5,
+              location: 'San Francisco, CA',
+              matchScore: 89,
+              fitBadge: 'Strong fit',
+              reviewStatus: 'Interview Ready',
+              resumeSummary: '5+ years building distributed systems at scale. Led infrastructure replatforming at a Series-B fintech, reducing P99 latency by 40%. Expert in Go, Kubernetes, and event-driven architectures.',
+              matchedSkills: ['Go', 'Kubernetes', 'Distributed Systems', 'PostgreSQL', 'Kafka'],
+              missingSkills: ['Paxos consensus'],
+              proofLine: 'Verified: 40% P99 latency reduction at FinStream. 2M events/day pipeline owner.',
+              education: [{ degree: 'B.S. Computer Science', school: 'UC Berkeley', year: '2019' }],
+              evidenceMap: [
+                { id: 'ev-lz-1', requirement: 'Distributed Systems', evidenceSource: 'Work History: FinStream Inc.', snippet: 'Led distributed systems design for event ingestion pipeline', confidence: 'High', status: 'Verified' },
+                { id: 'ev-lz-2', requirement: 'Performance Optimization', evidenceSource: 'Project: Replatform Initiative', snippet: 'Reduced P99 latency by 40% via connection pooling redesign', confidence: 'High', status: 'Verified' },
+                { id: 'ev-lz-3', requirement: '5+ Years Experience', evidenceSource: 'Resume 2019–2024', snippet: '5 years backend engineering at 2 companies', confidence: 'High', status: 'Verified' },
+              ],
+              interviewQuestions: [
+                { id: 'iq-lz-1', category: 'Technical Depth', questionText: 'Walk me through the latency optimization — what was the bottleneck and how did you isolate it?', targetRequirement: 'Performance optimization', severityTag: 'Deep dive', followUpProbe: 'What profiling tools did you use? (pprof, Jaeger, etc.)' },
+                { id: 'iq-lz-2', category: 'System Design', questionText: 'How do you approach database schema migrations in a zero-downtime deployment?', targetRequirement: 'Production systems', severityTag: 'Validate', followUpProbe: 'Have you used expand-contract pattern? What was the rollback plan?' },
+              ],
+              riskFlags: [],
+              experiences: [
+                { role: 'Senior Backend Engineer', company: 'FinStream Inc.', duration: '2022 – 2024', highlights: ['Owned event ingestion pipeline processing 2M events/day', 'Reduced P99 latency by 40% via connection pooling + async queue redesign'] },
+                { role: 'Backend Engineer', company: 'CloudOps Labs', duration: '2019 – 2022', highlights: ['Built Kubernetes operators for automated cluster scaling', 'Led migration from monolith to 12 microservices'] },
+              ],
+              projects: [
+                { name: 'Replatform Initiative', description: 'Zero-downtime migration of 14 microservices with 28% cost reduction', technologies: 'Go, Kafka, K8s', highlights: ['Zero-downtime migration of 14 services', 'Reduced infrastructure cost by 28%'], link: '' },
+              ],
+              teamNotes: [{ id: 'tn-lz-1', text: 'Strong distributed systems background. Recommend fast-track to technical panel.', author: 'Agent Screener', timestamp: now }],
+              auditTrail: [{ id: 'at-lz-1', action: 'Auto-screened by Autonomous Agent', timestamp: now, note: 'Score: 89% — Interview Ready. Dispatched from LinkedIn portal queue.' }],
+              pdfDataUrl: undefined,
+            },
+            {
+              id: 'demo-priya-sharma-002',
+              name: 'Priya Sharma',
+              email: 'priya.sharma@example.com',
+              initials: 'PS',
+              currentRole: 'ML Engineer',
+              experienceYears: 3,
+              location: 'New York, NY',
+              matchScore: 74,
+              fitBadge: 'Moderate fit',
+              reviewStatus: 'Needs Review',
+              resumeSummary: '3 years in applied ML with a focus on NLP and recommendation systems. Strong Python and PyTorch skills. Limited production systems experience but high research output.',
+              matchedSkills: ['Python', 'PyTorch', 'NLP', 'Recommendation Systems'],
+              missingSkills: ['Production SLAs', 'Infrastructure ownership'],
+              proofLine: 'Verified: NLP + recommendation systems. Gap: limited production SLA ownership.',
+              education: [{ degree: 'M.S. Machine Learning', school: 'Cornell Tech', year: '2021' }],
+              evidenceMap: [
+                { id: 'ev-ps-1', requirement: 'NLP / ML', evidenceSource: 'Project: SemanticSearch v2', snippet: 'Trained NLP ranking model improving CTR by 18%', confidence: 'High', status: 'Verified' },
+                { id: 'ev-ps-2', requirement: 'PyTorch', evidenceSource: 'Resume Skills + 2 projects', snippet: 'PyTorch used across 3 production ML projects', confidence: 'High', status: 'Verified' },
+                { id: 'ev-ps-3', requirement: 'Production SLA Ownership', evidenceSource: 'Not found in resume', snippet: 'No evidence of SLA ownership or on-call responsibilities', confidence: 'Low', status: 'Missing' },
+              ],
+              interviewQuestions: [
+                { id: 'iq-ps-1', category: 'Production Readiness', questionText: 'Describe a time when your model performed well in testing but poorly in production. How did you debug it?', targetRequirement: 'Production ML', severityTag: 'Deep dive', followUpProbe: 'Did you use shadow mode or A/B testing? How did you monitor distribution shift?' },
+                { id: 'iq-ps-2', category: 'System Design', questionText: 'How would you design a real-time recommendation system serving 1M users/day?', targetRequirement: 'Scalable ML systems', severityTag: 'Validate', followUpProbe: 'Walk me through the two-tower model and ANN retrieval layer.' },
+              ],
+              riskFlags: [{ id: 'rf-ps-1', label: 'No production SLA ownership found', severity: 'moderate', details: 'All ML work appears research or feature-team focused. Verify if candidate has managed production incidents.' }],
+              experiences: [
+                { role: 'ML Engineer', company: 'Contextual AI', duration: '2022 – Present', highlights: ['Trained NLP ranking model improving CTR by 18%', 'Deployed recommendation system to 500K users'] },
+                { role: 'ML Research Intern', company: 'Cornell Tech', duration: '2021', highlights: ['Co-authored paper on sparse attention transformers', 'Open-sourced benchmark dataset (1.2K GitHub stars)'] },
+              ],
+              projects: [
+                { name: 'SemanticSearch v2', description: 'Semantic search engine with FAISS-based ANN retrieval, reducing latency 6x', technologies: 'Python, PyTorch, FAISS', highlights: ['Reduced search latency from 280ms to 45ms', '94% precision on internal benchmark'], link: 'github.com/priya-sharma/semantic-search' },
+              ],
+              teamNotes: [{ id: 'tn-ps-1', text: 'Promising ML profile but verify production systems experience before advancing.', author: 'Agent Screener', timestamp: now }],
+              auditTrail: [{ id: 'at-ps-1', action: 'Auto-screened by Autonomous Agent', timestamp: now, note: 'Score: 74% — Needs Review. Risk flag: no production SLA ownership evidence.' }],
+              pdfDataUrl: undefined,
+            },
+          ];
+
+          for (const demo of demos) {
+            await DatabaseService.saveCandidate(demo).catch(() => {});
+          }
+          localStorage.setItem(SEED_KEY, '1');
+          setCandidates(demos);
+          setSelectedCandidateId(demos[0].id);
+          return;
+        }
+
+
         setCandidates(realCandidates);
         if (realCandidates.length > 0) {
           setSelectedCandidateId(realCandidates[0].id);
@@ -99,6 +218,16 @@ export function App() {
       })
       .catch(err => console.warn('IndexedDB startup notice:', err));
   }, []);
+
+  // Auto-close compare modal if a compared candidate gets rejected/removed
+  useEffect(() => {
+    if (compareCandidates.length > 0) {
+      const stillValid = compareCandidates.filter(c => candidates.some(ac => ac.id === c.id));
+      if (stillValid.length !== compareCandidates.length) {
+        setCompareCandidates([]); // Close modal — one of the pair was removed
+      }
+    }
+  }, [candidates]);
 
   // Dynamic Page Title
   useEffect(() => {
@@ -197,13 +326,44 @@ export function App() {
     showToast('Interview note saved to candidate dossier', 'success');
   };
 
-  // Candidate Actions: Update Status & Trigger Human-in-the-Loop Gmail Sync
+  // Candidate Actions: Update Status & Trigger Human-in-the-Loop Email Sync
   const handleUpdateStatus = (
     candidateId: string,
     status: CandidateCaseFile['reviewStatus']
   ) => {
     const candidateToUpdate = candidates.find(c => c.id === candidateId);
 
+    if (status === 'Rejected') {
+      if (candidateToUpdate) {
+        // 1. Remove candidate from active pipeline list
+        setCandidates(prev => {
+          const remaining = prev.filter(c => c.id !== candidateId);
+          if (selectedCandidateId === candidateId) {
+            setSelectedCandidateId(remaining[0]?.id || '');
+          }
+          return remaining;
+        });
+
+        // 2. Remove from persistent database storage
+        DatabaseService.deleteCandidate(candidateId).catch(e => console.warn('DB delete notice:', e));
+
+        if (detailModalCandidate && detailModalCandidate.id === candidateId) {
+          setDetailModalCandidate(null);
+        }
+        if (interviewKitCandidate && interviewKitCandidate.id === candidateId) {
+          setInterviewKitCandidate(null);
+        }
+
+        showToast(`${candidateToUpdate.name} rejected and removed from pipeline. Preparing automated rejection email...`, 'info');
+
+        // 3. Trigger automated rejection email to candidate's email from resume
+        setEmailApprovalCandidate({ ...candidateToUpdate, reviewStatus: 'Rejected' });
+        setEmailApprovalStatus('Rejected');
+      }
+      return;
+    }
+
+    // For non-rejected statuses: update candidate in-place
     setCandidates(prev =>
       prev.map(c => {
         if (c.id === candidateId) {
@@ -226,13 +386,10 @@ export function App() {
     );
     showToast(`Status updated to "${status}"`, 'info');
 
-    // Human-in-the-loop: Prompt HR if candidate is moved to Interview Ready or Passed Screen
-    if (candidateToUpdate && (status === 'Interview Ready' || status === 'Passed Screen')) {
-      const gmailCfg = GmailSyncService.getConfig();
-      if (gmailCfg.autoPromptOnSync) {
-        setEmailApprovalCandidate({ ...candidateToUpdate, reviewStatus: status });
-        setEmailApprovalStatus(status);
-      }
+    // Automated candidate email: Prompt recruiter/HR when candidate is moved to Interview Ready or Selected (Passed Screen / Offer Extended)
+    if (candidateToUpdate && (status === 'Interview Ready' || status === 'Passed Screen' || status === 'Offer Extended')) {
+      setEmailApprovalCandidate({ ...candidateToUpdate, reviewStatus: status });
+      setEmailApprovalStatus(status);
     }
 
     if (detailModalCandidate && detailModalCandidate.id === candidateId) {
@@ -389,6 +546,8 @@ export function App() {
           onBackToLanding={() => setView('landing')}
           onReevaluateWithAi={handleReevaluateWithAi}
           isAiEvaluating={isAiEvaluating}
+          onOpenAgentOps={() => setIsAgentOpsOpen(true)}
+          onOpenCareerPortal={() => setIsCareerPortalOpen(true)}
         />
       )}
 
@@ -522,7 +681,94 @@ export function App() {
           setIsGmailSyncOpen(true);
         }}
         onEmailSent={(receipt) => {
-          showToast(`Email dispatched to ${receipt.candidateName} via Gmail!`, 'success');
+          showToast(`Automated email successfully dispatched to ${receipt.recipientEmail}!`, 'success');
+        }}
+        onDismissWithoutSending={(c, email) => {
+          setEmailNotSentAlert({
+            candidateName: c.name,
+            recipientEmail: email || 'No email on file'
+          });
+          showToast(`⚠️ Automated email was not sent to ${c.name}. SMTP key missing.`, 'warning');
+        }}
+      />
+
+      {/* POPUP ALERT: Email Not Sent Due to Missing Credentials */}
+      {emailNotSentAlert && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl shadow-2xl border border-amber-200 max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 border border-amber-200 flex items-center justify-center text-amber-700 shrink-0">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Automated Email Not Sent</h3>
+                <p className="text-xs text-slate-500">Notice for candidate dispatch</p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-1.5 text-xs text-amber-900">
+              <p>
+                The automated status email was <strong>not sent</strong> to <strong>{emailNotSentAlert.candidateName}</strong> ({emailNotSentAlert.recipientEmail}).
+              </p>
+              <p className="text-[11px] text-amber-700 leading-relaxed">
+                SMTP or email service credentials were not provided. You can configure credentials at any time in Email Settings.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setEmailNotSentAlert(null);
+                  setIsGmailSyncOpen(true);
+                }}
+                className="px-3.5 py-2 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors cursor-pointer"
+              >
+                Configure SMTP
+              </button>
+              <button
+                type="button"
+                onClick={() => setEmailNotSentAlert(null)}
+                className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 10: Autonomous AI Recruiter Agent Operations Center */}
+      <AutonomousAgentOpsCenter
+        isOpen={isAgentOpsOpen}
+        onClose={() => setIsAgentOpsOpen(false)}
+        role={role}
+        onOpenCareerPortal={() => {
+          setIsAgentOpsOpen(false);
+          setIsCareerPortalOpen(true);
+        }}
+        onSelectCandidate={(c) => {
+          setSelectedCandidateId(c.id);
+          setIsAgentOpsOpen(false);
+        }}
+        onShowToast={showToast}
+        onEmailApprovalNeeded={(candidate, status) => {
+          // Route through the SMTP-gated EmailApprovalModal
+          setEmailApprovalCandidate({ ...candidate, reviewStatus: status });
+          setEmailApprovalStatus(status);
+        }}
+        onEmailNotSent={(candidateName, recipientEmail) => {
+          setEmailNotSentAlert({ candidateName, recipientEmail });
+        }}
+      />
+
+      {/* MODAL 11: Public Candidate Career Portal (/apply) */}
+      <CareerPortalModal
+        isOpen={isCareerPortalOpen}
+        onClose={() => setIsCareerPortalOpen(false)}
+        role={role}
+        onApplicationSubmitted={(candName) => {
+          showToast(`Application received for ${candName}! Autonomous agent notified.`, 'success');
         }}
       />
 
@@ -536,6 +782,8 @@ export function App() {
                 ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
                 : t.type === 'error'
                 ? 'bg-rose-50 text-rose-900 border-rose-200'
+                : t.type === 'warning'
+                ? 'bg-amber-50 text-amber-900 border-amber-200'
                 : 'bg-white text-slate-900 border-slate-200'
             }`}
           >
@@ -543,6 +791,8 @@ export function App() {
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             ) : t.type === 'error' ? (
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            ) : t.type === 'warning' ? (
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
             ) : (
               <Sparkles className="w-4 h-4 text-indigo-600 shrink-0" />
             )}

@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { CandidateCaseFile, ReviewMode, EvidenceItem, InterviewKitQuestion } from '../types';
+import { CandidateCaseFile, ReviewMode, EvidenceItem } from '../types';
 import { 
   Briefcase, 
   MapPin, 
   Mail, 
   Phone, 
-  Globe, 
   CheckCircle2, 
   AlertTriangle, 
   FileText, 
@@ -20,8 +19,7 @@ import {
   Send,
   Download,
   Search,
-  Layers,
-  Code
+  Layers
 } from 'lucide-react';
 import { AudioService } from '../services/audioService';
 
@@ -33,6 +31,7 @@ interface CandidateExecutiveDossierProps {
   onAddNote: (candidateId: string, noteText: string) => void;
   onReevaluateWithAi?: () => void;
   isAiEvaluating?: boolean;
+  onOpenResumeViewer?: () => void;
 }
 
 export const CandidateExecutiveDossier: React.FC<CandidateExecutiveDossierProps> = ({
@@ -42,13 +41,13 @@ export const CandidateExecutiveDossier: React.FC<CandidateExecutiveDossierProps>
   onUpdateStatus,
   onAddNote,
   onReevaluateWithAi,
-  isAiEvaluating
+  isAiEvaluating,
+  onOpenResumeViewer
 }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'evidence' | 'probes' | 'notes' | 'resume'>('overview');
   const [resumeViewMode, setResumeViewMode] = useState<'pdf' | 'text'>(candidate.pdfDataUrl ? 'pdf' : 'text');
   const [resumeSearchQuery, setResumeSearchQuery] = useState('');
   const [copiedText, setCopiedText] = useState<string | null>(null);
-  const [activeCitationSnippet, setActiveCitationSnippet] = useState<EvidenceItem | null>(null);
   const [noteInput, setNoteInput] = useState('');
   const [playingTTS, setPlayingTTS] = useState<string | null>(null);
 
@@ -181,16 +180,23 @@ export const CandidateExecutiveDossier: React.FC<CandidateExecutiveDossierProps>
           <div className="flex items-center gap-2 self-start shrink-0">
             {/* View Original Resume Button */}
             <button
-              onClick={() => setActiveTab('resume')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg border flex items-center gap-1.5 transition-colors cursor-pointer ${
-                activeTab === 'resume'
-                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
-                  : 'bg-white text-slate-700 hover:text-indigo-600 hover:bg-slate-50 border-slate-200 shadow-2xs'
-              }`}
-              title="Inspect original resume text or uploaded document"
+              onClick={() => {
+                if (onOpenResumeViewer) {
+                  onOpenResumeViewer();
+                } else {
+                  setActiveTab('resume');
+                }
+              }}
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white text-slate-800 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50/50 flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
+              title="Inspect verbatim resume text or uploaded PDF document"
             >
-              <FileText className={`w-3.5 h-3.5 ${activeTab === 'resume' ? 'text-white' : 'text-indigo-600'}`} />
+              <FileText className="w-3.5 h-3.5 text-indigo-600" />
               <span>View Resume</span>
+              {candidate.pdfDataUrl && (
+                <span className="bg-indigo-100 text-indigo-700 px-1 py-0.2 rounded text-[9px] font-mono font-bold">
+                  PDF
+                </span>
+              )}
             </button>
 
             {onReevaluateWithAi && (
@@ -299,44 +305,54 @@ export const CandidateExecutiveDossier: React.FC<CandidateExecutiveDossierProps>
         {activeTab === 'overview' && (
           <div className="space-y-6">
             
-            {/* Executive Summary */}
+            {/* Executive Summary: Sleek boundary line layout (No AI-slop box) */}
             {candidate.resumeSummary && (
-              <div className="bg-slate-50 rounded-xl p-4 border border-slate-200/80">
-                <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wide mb-1.5">
-                  Executive Summary
-                </h4>
-                <p className="text-sm text-slate-700 leading-relaxed">
+              <div className="pb-6 border-b border-slate-200/80 space-y-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-600" />
+                  <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest font-mono">
+                    Executive Summary
+                  </h4>
+                </div>
+                <p className="text-sm text-slate-800 leading-relaxed font-sans pl-3.5 border-l-2 border-indigo-400">
                   {candidate.resumeSummary}
                 </p>
               </div>
             )}
 
-            {/* Documented Projects (Real, extracted projects) */}
+            {/* Documented Projects: Refined boundary section without bulky cards */}
             {candidate.projects && candidate.projects.length > 0 && (
-              <div className="space-y-3">
+              <div className="pb-6 border-b border-slate-200/80 space-y-4">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wide">
-                    Documented Projects & Systems ({candidate.projects.length})
-                  </h4>
-                  <span className="text-xs text-slate-500">Extracted from resume</span>
+                  <div className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-600" />
+                    <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest font-mono">
+                      Documented Projects & Systems ({candidate.projects.length})
+                    </h4>
+                  </div>
+                  <span className="text-[11px] text-slate-400 font-mono">Extracted verbatim</span>
                 </div>
 
-                <div className="grid grid-cols-1 gap-3">
+                <div className="divide-y divide-slate-100">
                   {candidate.projects.map((proj, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-white rounded-xl border border-slate-200 p-4 hover:border-slate-300 transition-colors shadow-sm space-y-2"
-                    >
+                    <div key={idx} className="py-3.5 first:pt-0 last:pb-0 space-y-2">
                       <div className="flex items-baseline justify-between gap-2">
-                        <h5 className="text-sm font-bold text-slate-900">
-                          {proj.name}
-                        </h5>
+                        <div className="flex items-center gap-2.5">
+                          <h5 className="text-sm font-bold text-slate-900">
+                            {proj.name}
+                          </h5>
+                          {proj.technologies && (
+                            <span className="text-[10px] font-mono text-indigo-700 bg-indigo-50/80 border border-indigo-100 px-2 py-0.5 rounded">
+                              {proj.technologies}
+                            </span>
+                          )}
+                        </div>
                         {proj.link && (
                           <a
                             href={proj.link.startsWith('http') ? proj.link : `https://${proj.link}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-xs text-indigo-600 hover:underline flex items-center gap-0.5"
+                            className="text-xs text-indigo-600 hover:underline flex items-center gap-1 font-mono"
                           >
                             <span>{proj.link}</span>
                             <ExternalLink className="w-3 h-3" />
@@ -344,18 +360,11 @@ export const CandidateExecutiveDossier: React.FC<CandidateExecutiveDossierProps>
                         )}
                       </div>
 
-                      {proj.technologies && (
-                        <div className="text-xs font-mono text-indigo-700 bg-indigo-50/60 px-2 py-1 rounded inline-block">
-                          {proj.technologies}
-                        </div>
-                      )}
-
                       {proj.highlights && proj.highlights.length > 0 && (
-                        <ul className="space-y-1.5 mt-2 text-xs text-slate-700">
+                        <ul className="space-y-1 text-xs text-slate-600 pl-3 border-l border-slate-200">
                           {proj.highlights.map((hl, hIdx) => (
-                            <li key={hIdx} className="flex items-start gap-2">
-                              <span className="text-indigo-500 mt-1 shrink-0">•</span>
-                              <span className="leading-relaxed">{hl}</span>
+                            <li key={hIdx} className="leading-relaxed">
+                              {hl}
                             </li>
                           ))}
                         </ul>
@@ -366,26 +375,28 @@ export const CandidateExecutiveDossier: React.FC<CandidateExecutiveDossierProps>
               </div>
             )}
 
-            {/* Work Experiences */}
+            {/* Work History: Sleek timeline boundary */}
             {candidate.experiences && candidate.experiences.length > 0 && (
-              <div className="space-y-3">
-                <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wide">
-                  Work History
-                </h4>
-                <div className="space-y-3">
+              <div className="pb-6 border-b border-slate-200/80 space-y-4">
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-600" />
+                  <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest font-mono">
+                    Work History ({candidate.experiences.length})
+                  </h4>
+                </div>
+                <div className="divide-y divide-slate-100">
                   {candidate.experiences.map((exp, idx) => (
-                    <div key={idx} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm space-y-2">
+                    <div key={idx} className="py-3.5 first:pt-0 last:pb-0 space-y-1.5">
                       <div className="flex items-baseline justify-between">
                         <h5 className="text-sm font-bold text-slate-900">{exp.role}</h5>
                         <span className="text-xs font-mono text-slate-500">{exp.duration}</span>
                       </div>
                       <div className="text-xs font-medium text-slate-600">{exp.company}</div>
                       {exp.highlights && exp.highlights.length > 0 && (
-                        <ul className="space-y-1.5 mt-2 text-xs text-slate-700">
+                        <ul className="space-y-1 mt-1 text-xs text-slate-600 pl-3 border-l border-slate-200">
                           {exp.highlights.map((hl, hIdx) => (
-                            <li key={hIdx} className="flex items-start gap-2">
-                              <span className="text-slate-400 mt-1 shrink-0">•</span>
-                              <span className="leading-relaxed">{hl}</span>
+                            <li key={hIdx} className="leading-relaxed">
+                              {hl}
                             </li>
                           ))}
                         </ul>
@@ -396,18 +407,21 @@ export const CandidateExecutiveDossier: React.FC<CandidateExecutiveDossierProps>
               </div>
             )}
 
-            {/* Education */}
+            {/* Education & Credentials: Minimalist clean metadata */}
             {candidate.education && candidate.education.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wide">
-                  Education & Credentials
-                </h4>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-600" />
+                  <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest font-mono">
+                    Education & Credentials
+                  </h4>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {candidate.education.map((edu, idx) => (
-                    <div key={idx} className="bg-slate-50 rounded-xl p-3 border border-slate-200/80 text-xs">
+                    <div key={idx} className="py-2 pl-3 border-l-2 border-slate-200 text-xs space-y-0.5">
                       <div className="font-semibold text-slate-900">{edu.degree}</div>
-                      <div className="text-slate-600 mt-0.5">{edu.school}</div>
-                      <div className="text-slate-400 font-mono text-[11px] mt-1">{edu.year}</div>
+                      <div className="text-slate-600">{edu.school}</div>
+                      <div className="text-slate-400 font-mono text-[11px]">{edu.year}</div>
                     </div>
                   ))}
                 </div>

@@ -1,178 +1,168 @@
-# TalentDossier (TD) — Autonomous AI Recruiter Intelligence System
-> **Built for the Agentic AI Hackathon 2026**  
-> *Autonomous Candidate Screening, Evidence Verification & Workspace Tool Execution*
+﻿# TalentDossier â€” Autonomous AI Recruiter Agent
+> **Agentic AI Hackathon 2026 Submission**  
+> *From raw resume to hiring decision, autonomously â€” with humans in the loop at exactly the right moment.*
 
-[![CI Quality Gate](https://github.com/akshat-lakhera/hireflow-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/akshat-lakhera/hireflow-ai/actions/workflows/ci.yml)
-[![Deploy to GitHub Pages](https://github.com/akshat-lakhera/hireflow-ai/actions/workflows/deploy.yml/badge.svg)](https://github.com/akshat-lakhera/hireflow-ai/actions/workflows/deploy.yml)
-[![GitHub Release](https://img.shields.io/github/v/release/akshat-lakhera/hireflow-ai?color=6366f1&label=Release&logo=github)](https://github.com/akshat-lakhera/hireflow-ai/releases/latest)
-[![Direct Download](https://img.shields.io/badge/Download-Standalone%20Release%20ZIP-emerald?logo=github)](https://github.com/akshat-lakhera/hireflow-ai/releases/latest/download/talentdossier-v1.0.0-standalone.zip)
-
-TalentDossier is an **Autonomous Agentic Recruiting Platform** engineered to transform raw applicant resumes into verifiable, evidence-grounded hiring decisions. Operating on a **ReAct (Reasoning + Acting) Agentic Framework**, TalentDossier gives AI real agency over the recruiter's workspace: autonomously evaluating applicant portfolios against custom role blueprints, executing UI tools (comparison matrix, stage updates, interview kits), and committing auditable decisions directly into an IndexedDB / Supabase pgvector store.
+[![Build](https://github.com/akshat-lakhera/hireflow-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/akshat-lakhera/hireflow-ai/actions/workflows/ci.yml)
+[![Deploy](https://github.com/akshat-lakhera/hireflow-ai/actions/workflows/deploy.yml/badge.svg)](https://github.com/akshat-lakhera/hireflow-ai/actions/workflows/deploy.yml)
+[![Release](https://img.shields.io/github/v/release/akshat-lakhera/hireflow-ai?color=6366f1&label=Release)](https://github.com/akshat-lakhera/hireflow-ai/releases/latest)
 
 ---
 
-## 📦 Instant Standalone Download (No Setup Required)
+## What Is This?
 
-Want to run or inspect TalentDossier immediately without installing developer tools or configuring node builds?
+**TalentDossier** is a fully autonomous AI recruiting agent that runs end-to-end â€” from the moment a candidate submits their resume to the moment an acceptance or rejection email lands in their inbox â€” with one human checkpoint in between.
 
-- 📥 **Direct Download (.zip)**: [**talentdossier-v1.0.0-standalone.zip**](https://github.com/akshat-lakhera/hireflow-ai/releases/latest/download/talentdossier-v1.0.0-standalone.zip)
-- 🏷️ **GitHub Releases Hub**: [**https://github.com/akshat-lakhera/hireflow-ai/releases**](https://github.com/akshat-lakhera/hireflow-ai/releases)
+It is **not a chatbot**. It does not wait for prompts. It runs a continuous **Perceive â†’ Plan â†’ Act** loop:
+- **Perceive**: Monitors an application portal queue for new submissions (LinkedIn, Greenhouse, Indeed, or a built-in career page)
+- **Plan**: Generates a dynamic DAG (Directed Acyclic Graph) execution plan for each batch of candidates
+- **Act**: Executes each plan step â€” embedding extraction, evidence triage, qualification scoring, status classification, and email drafting
+- **Gate**: Stages all decisions in a Human Review Action Deck before any email fires
 
-### 30-Second Launch:
-1. **Download & unzip** `talentdossier-v1.0.0-standalone.zip`.
-2. **Serve locally** via any static web server:
-   ```bash
-   # Option A: With npx (Node.js)
-   npx serve .
-   
-   # Option B: With Python
-   python -m http.server 8080
-   ```
-3. Open `http://localhost:3000` or `http://localhost:8080` in your browser. All vector embeddings, resume parsing, and local agent reasoning run 100% in-browser with zero telemetry leakage!
+This is the architecture described by the hackathon brief: *"An AI agent works independently in a continuous loop. It breaks down a big goal into smaller steps, checks its environment, and takes real-world actions."*
 
 ---
 
-## Workspace Showcase
+## See It in 60 Seconds
 
-### 1. Three-Column Recruiter Workspace
-A responsive, resizable IDE-style workspace with pipeline cards, deep-dive executive dossier, verified citations, and recruiter action rail.
+**Step 1 â€” Clone and run:**
+```bash
+git clone https://github.com/akshat-lakhera/hireflow-ai.git
+cd hireflow-ai
+npm install
+npm run dev
+```
+Open `http://localhost:5173`
 
-![TalentDossier Recruiter Workspace](docs/screenshots/dashboard-workspace.png)
+**Step 2 â€” Define a role** (takes 30 seconds in the onboarding wizard â€” or skip, a default role is pre-loaded)
 
----
+**Step 3 â€” Trigger the agent loop:**  
+Click **"Autonomous Agent"** in the top nav â†’ **"Activate Loop"** â†’ **"Simulate Portal Inflow"**
 
-### 2. Autonomous Screener Agent (Multi-Step ReAct Pipeline)
-Autonomously ingests the role requirements, performs evidence triage, makes decisive stage classifications (`Interview Ready`, `Needs Review`, `Rejected`), and logs immutable audit trails.
+Watch the agent perceive 3 candidates from LinkedIn/Greenhouse/Indeed, build a DAG plan, score each against your role blueprint, classify each one, draft emails, and stage them for your 1-click approval â€” all without you touching anything.
 
-![Autonomous Screener Agent](docs/screenshots/autonomous-screener-agent.png)
-
----
-
-### 3. Recruiter Agent Copilot (Workspace Tool Execution)
-Natural language RAG recruiter agent that reasons over applicant data and directly executes workspace actions with visual execution receipts.
-
-![Recruiter Agent Copilot](docs/screenshots/recruiter-copilot.png)
-
----
-
-### 4. Head-to-Head Candidate Compare Matrix
-Benchmarking matrix evaluating two candidates side-by-side across match scores, experience, and differential technical requirements.
-
-![Candidate Comparison Matrix](docs/screenshots/candidate-compare-matrix.png)
+**Step 4 â€” Review and approve** in the Human Review Action Deck. If SMTP credentials are configured, emails dispatch automatically. If not, the system surfaces an inline key capture modal â€” enter it, verify, send.
 
 ---
 
-## Agentic Core Features
-
-### 1. Autonomous Screener Agent
-- **4-Step Execution Pipeline**:
-  1. `Ingest Blueprint`: Loads role criteria, must-have skills, and dense 384-dimensional candidate embeddings.
-  2. `Evidence Triage`: Verifies qualification coverage across projects, work history, and verified proof points.
-  3. `Decisive Classification`: Autonomously advances candidates to **Interview Ready**, holds for **Needs Review**, or screens out to **Rejected**.
-  4. `Audit Commit`: Writes timestamped justification notes and immutable audit trail records directly to candidate files.
-- **Dual-Engine Transparent Attribution**:
-  - *Frontier LLM Mode*: Uses Groq (`llama-3.3-70b-versatile`), Google Gemini (`gemini-1.5-flash`), or OpenAI (`gpt-4o-mini`) to generate authentic, non-templated reasoning.
-  - *Local Deterministic Rule Engine*: Client-side verification fallback with 100% honest attribution (zero fabricated claims).
-
-### 2. Recruiter Agent Copilot (7 Workspace Tools)
-The Copilot is equipped with active agency through executable workspace tools:
-1. `compare_candidates`: Opens side-by-side comparison matrix for designated applicants.
-2. `update_candidate_status`: Promotes or rejects candidates in real time.
-3. `select_candidate`: Loads the candidate's executive dossier into the workspace.
-4. `open_interview_kit`: Launches the technical interview kit with confidential rubrics.
-5. `add_note`: Appends recruiter intelligence notes to the candidate's permanent file.
-6. `filter_pipeline`: Filters candidates by keyword or skill in real time.
-7. `autonomous_screen_pipeline`: Dispatches the multi-step screener agent.
-- **Visual ReAct Receipts**: Each tool call renders an interactive receipt badge in the chat stream displaying the agent's thought process, tool name, parameters, and live UI status.
-
-### 3. Structured Interview Kit with TTS & Speech-to-Text
-- **Confidential Rubric Protection**: Text-to-Speech (TTS) speaks only the interview question aloud, never leaking interviewer rubrics or internal scoring criteria.
-- **Live Voice Dictation (STT)**: Web Speech API integration captures interviewer notes and candidate answers in real time.
-- **Auto-Synced Answer Persistence**: Answers and interviewer evaluations persist directly to the database.
-
-### 4. Dual-Layer Storage & Hybrid Vector Engine
-- **Local IndexedDB Vector Store**: Zero setup required. Every candidate is automatically embedded into a 384-dimensional dense vector space for sub-millisecond semantic search.
-- **Supabase Cloud Sync (pgvector)**: Enterprise database support with automated background sync, vector similarity search (`match_candidates` RPC), and schema migration script (`public/schema.sql`).
-- **Zero Data Loss Guarantee**: Automatic migration ensures candidate records and role configurations remain intact across updates.
-
-### 5. Verbatim Resume Inspection & PDF Preview
-- **Full Original Text Stream**: Line-numbered text viewer with real-time keyword highlighting, word count, and one-click copy to clipboard.
-- **Embedded PDF Rendering**: Dedicated `<iframe />` preview for uploaded PDF resumes alongside parsed qualifications.
-- **Quick-Access Inspection Points**: Direct access via candidate pipeline cards, executive dossier action bar, and the dedicated `📄 Original Resume` dossier tab.
-
----
-
-## System Architecture
+## The Agentic Architecture
 
 ```
-                               ┌─────────────────────────────────────────┐
-                               │         TalentDossier Front-End         │
-                               │   (React 19 + TypeScript + Vite + CSS)  │
-                               └────────────────────┬────────────────────┘
-                                                    │
-                 ┌──────────────────────────────────┴──────────────────────────────────┐
-                 ▼                                                                     ▼
-   ┌───────────────────────────┐                                         ┌───────────────────────────┐
-   │    Local Storage Layer    │                                         │    Frontier AI Engine     │
-   ├───────────────────────────┤                                         ├───────────────────────────┤
-   │ • IndexedDB Vector Store  │                                         │ • Groq LLaMA 3.3 70B      │
-   │ • 384-dim Dense Vectors   │                                         │ • Google Gemini 1.5 Flash │
-   │ • Cosine Similarity Engine│                                         │ • OpenAI GPT-4o-mini      │
-   │ • Persistent Local Config │                                         │ • ReAct Workspace Tools   │
-   └─────────────┬─────────────┘                                         └─────────────┬─────────────┘
-                 │                                                                     │
-                 ▼                                                                     ▼
-   ┌───────────────────────────┐                                         ┌───────────────────────────┐
-   │    Cloud Database Sync    │                                         │   Interview Intelligence  │
-   ├───────────────────────────┤                                         ├───────────────────────────┤
-   │ • Supabase PostgreSQL     │                                         │ • Web Speech STT Audio    │
-   │ • pgvector 384-dim Embed  │                                         │ • SpeechSynthesis TTS     │
-   │ • Hybrid Search RPC       │                                         │ • Confidential Rubrics    │
-   └───────────────────────────┘                                         └───────────────────────────┘
+PERCEPTION LAYER              PLANNING LAYER              ACTION LAYER
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+PortalIngestionService    â†’   AgentLoopRuntime (DAG)   â†’  Tool Execution
+  â€¢ Career portal queue         â€¢ Dynamic plan per batch    â€¢ Candidate embedding
+  â€¢ Greenhouse webhook            STEP 1: ingest_portal     â€¢ Evidence triage
+  â€¢ Lever webhook                 STEP 2: extract_embed     â€¢ Score & classify
+  â€¢ LinkedIn Apply                STEP 3: triage_evidence   â€¢ Status update
+  â€¢ Indeed webhook                STEP 4: score_rank        â€¢ Email draft
+  â€¢ Event-driven (instant)        STEP 5: update_status   
+                                  STEP 6: draft_email     
+                                  STEP 7: human_gate  â”€â”€â†’  HUMAN CHECKPOINT
+                                                            (approve / reject / edit)
+                                                                   â”‚
+                                                          Email dispatch to candidate
+                                                          (SMTP-gated, real credentials)
 ```
+
+### ReAct Protocol (Reasoning + Acting)
+Every agent cycle logs its **Thought â†’ Action â†’ Observation** loop in real time to the Operations Center terminal:
+```
+[THOUGHT]   3 new applications detected from portal queue (LinkedIn x2, Greenhouse x1)
+[ACTION]    run_plan_step: extract_embedding for "Liam Zhang"
+[OBSERVE]   384-dim vector. Cosine similarity to role blueprint: 0.87
+[THOUGHT]   Similarity exceeds threshold (0.75). Proceeding to evidence triage.
+[ACTION]    run_plan_step: triage_evidence for "Liam Zhang"
+[OBSERVE]   4/5 must-have skills verified. 2 proof points. Gap: Paxos variants.
+[ACTION]    run_plan_step: score_rank â†’ 89% (Strong fit) â†’ Interview Ready
+[ACTION]    run_plan_step: draft_email â†’ Subject + body generated
+[ACTION]    human_gate â†’ staged for recruiter 1-click approval
+```
+
+---
+
+## Features
+
+### Autonomous Loop (Core Innovation)
+- **Continuous daemon**: Polls application queue every 10 seconds (configurable interval)
+- **Event-driven trigger**: Activates instantly on `portal_inflow` events â€” no polling lag when someone actually applies
+- **Persistent state**: Staged decisions, audit logs, and ReAct traces survive page refresh via localStorage
+- **Pause/resume**: Recruiter can pause the loop and manually step-cycle for debugging
+
+### Multi-Source Application Ingestion
+- **Built-in career portal** (`/apply` page inside the app) â€” candidates fill a form, agent detects and processes in <10s
+- **Webhook format support**: Greenhouse, Lever, LinkedIn Apply, Indeed structured payloads
+- **Simulated batch inflow**: Realistic 3-candidate demo batch from all four sources for instant demonstration
+
+### AI Engine (Dual-Mode, No Vendor Lock-in)
+- **Frontier LLM**: Groq LLaMA-3.3 70B, Google Gemini 1.5 Flash, or OpenAI GPT-4o-mini â€” switchable at runtime
+- **Local deterministic fallback**: Rule-based scoring engine works with zero API keys â€” honest attribution, zero hallucination
+- Transparent in UI â€” the active engine name is shown on every evaluation result
+
+### Human-in-the-Loop Gate
+- Every agent decision stages in the **Human Review Action Deck** before any action fires
+- 1-click Approve or Dismiss per candidate
+- Batch approve all with a single button
+- Full email preview (subject + body) expandable inline before sending
+- **SMTP gate**: If no key, surfaces an inline credential capture modal with connection test. If recruiter still doesn't provide â€” "Email Not Sent" alert records the skipped communication with name + email
+
+### Recruiter Workspace
+- **3-column IDE-style layout** with resizable, collapsible panels (drag handles, persisted widths)
+- **Candidate Executive Dossier**: Evidence map, interview probes, notes, full audit trail, original resume (PDF embed + text viewer with keyword highlight)
+- **Compare Matrix**: Side-by-side scoring for any 2 candidates; auto-closes if a candidate is rejected mid-session
+- **Recruiter AI Copilot**: Natural language with 7 executable workspace tools (compare, update status, open interview kit, add note, filter pipeline, re-evaluate with AI, etc.)
+- **Structured Interview Kit**: TTS reads questions aloud (without leaking rubrics), STT captures interviewer notes live
+
+### Storage
+- **IndexedDB** â€” in-browser vector store, zero config, works offline
+- **Supabase pgvector** â€” optional cloud sync with 384-dim semantic similarity search
+- Schema SQL in `public/schema.sql`
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | React 19, TypeScript, Vite |
+| Agent Runtime | Custom ReAct loop + DAG planner â€” pure TypeScript, no framework |
+| AI APIs | Groq, Google Gemini, OpenAI (all optional, switchable) |
+| Vector Store | IndexedDB (local) + Supabase pgvector (cloud) |
+| PDF Parsing | pdfjs-dist (client-side, no server) |
+| Speech | Web Speech API (browser-native TTS + STT) |
+| Email | GmailSyncService (SMTP App Password or SendGrid) |
 
 ---
 
 ## Quick Start
 
-### Prerequisites
-- Node.js 18+ (Node 20+ recommended)
-- npm or pnpm
-
-### Installation
-
 ```bash
-# Clone the repository
 git clone https://github.com/akshat-lakhera/hireflow-ai.git
 cd hireflow-ai
-
-# Install dependencies
 npm install
-
-# Start local development server
 npm run dev
+# â†’ http://localhost:5173
 ```
 
-The application will be running at `http://127.0.0.1:5173/`.
+**To enable live LLM reasoning (optional):**
+1. Click the status badge in the top nav â†’ AI Settings
+2. Paste a free [Groq API key](https://console.groq.com) â†’ Save
 
-### Production Build
+**To enable real email dispatch (optional):**
+1. Settings â†’ Gmail Candidate Sync
+2. Enter Gmail App Password (16-char) â†’ Test Connection â†’ Save
 
-```bash
-npm run build
-npm run preview
-```
-
-### Linting & Type Checking
-
-```bash
-npm run lint
-npx tsc -b
-```
+The app is fully functional with zero API keys using the built-in deterministic engine.
 
 ---
 
 ## Submission Details
-- **Project Name**: TalentDossier (TD)
-- **Repository**: [https://github.com/akshat-lakhera/hireflow-ai](https://github.com/akshat-lakhera/hireflow-ai)
-- **Hackathon Track**: Agentic AI Hackathon 2026
-- **Architecture**: Autonomous Multi-Agent Recruiter System with ReAct Tool Execution & Vector Search
+
+| Field | Value |
+|---|---|
+| **Project Name** | TalentDossier |
+| **Hackathon** | Agentic AI Hackathon 2026 |
+| **Repository** | [github.com/akshat-lakhera/hireflow-ai](https://github.com/akshat-lakhera/hireflow-ai) |
+| **Architecture** | ReAct Loop + Dynamic DAG Planner + Human Gate + Multi-Source Portal Ingestion |
+| **AI Models** | Groq LLaMA-3.3-70B Â· Google Gemini 1.5 Flash Â· OpenAI GPT-4o-mini |
+| **Built During** | 24-hour hackathon window |
+

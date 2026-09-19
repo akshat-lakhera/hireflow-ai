@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CandidateCaseFile, RoleSetup } from '../types';
-import { GmailSyncService, EmailDispatchLog } from '../services/gmailSyncService';
+import { GmailSyncService, EmailDispatchLog, GmailConfig } from '../services/gmailSyncService';
 import { 
   Mail, 
   Send, 
@@ -9,9 +9,9 @@ import {
   CheckCircle2, 
   Settings, 
   AlertCircle,
-  FileText,
-  User,
-  Clock
+  Key,
+  Lock,
+  RefreshCw
 } from 'lucide-react';
 
 interface EmailApprovalModalProps {
@@ -21,7 +21,8 @@ interface EmailApprovalModalProps {
   role: RoleSetup;
   targetStatus: CandidateCaseFile['reviewStatus'];
   onEmailSent?: (log: EmailDispatchLog) => void;
-  onOpenGmailSettings: () => void;
+  onOpenGmailSettings?: () => void;
+  onDismissWithoutSending?: (candidate: CandidateCaseFile, recipientEmail: string) => void;
 }
 
 export const EmailApprovalModal: React.FC<EmailApprovalModalProps> = ({
@@ -31,15 +32,36 @@ export const EmailApprovalModal: React.FC<EmailApprovalModalProps> = ({
   role,
   targetStatus,
   onEmailSent,
-  onOpenGmailSettings
+  onOpenGmailSettings,
+  onDismissWithoutSending
 }) => {
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [recipient, setRecipient] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [sentSuccess, setSentSuccess] = useState(false);
-  const isGmailConfigured = GmailSyncService.isConfigured();
-  const gmailConfig = GmailSyncService.getConfig();
+
+  // Missing credential inline capture & verification state
+  const [inlineKey, setInlineKey] = useState('');
+  const [inlineSender, setInlineSender] = useState('recruiting@talentdossier.ai');
+  const [inlineProvider, setInlineProvider] = useState<'gmail' | 'sendgrid' | 'smtp' | 'emailjs'>('emailjs');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+
+  const [isConfigured, setIsConfigured] = useState<boolean>(() => GmailSyncService.isConfigured());
+  const [currentConfig, setCurrentConfig] = useState<GmailConfig>(() => GmailSyncService.getConfig());
+
+  useEffect(() => {
+    if (isOpen) {
+      const cfg = GmailSyncService.getConfig();
+      setCurrentConfig(cfg);
+      setIsConfigured(GmailSyncService.isConfigured());
+      setInlineKey(cfg.apiKey || '');
+      setInlineSender(cfg.senderEmail || 'recruiting@talentdossier.ai');
+      setInlineProvider(cfg.provider || 'gmail');
+      setVerifyError(null);
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (candidate && isOpen) {
@@ -54,7 +76,54 @@ export const EmailApprovalModal: React.FC<EmailApprovalModalProps> = ({
 
   if (!isOpen || !candidate) return null;
 
-  const handleSend = async () => {
+  const handleDismiss = () => {
+    if (!sentSuccess && candidate) {
+      onDismissWithoutSending?.(candidate, recipient);
+    }
+    onClose();
+  };
+
+  const handleVerifyAndSend = async () => {
+    setVerifyError(null);
+
+    // 1. If key is missing or short, block and explain
+    if (!inlineKey.trim()) {
+      setVerifyError('Email cannot be sent: SMTP / API Key is missing. Please enter your API key or App Password.');
+      return;
+    }
+
+    setIsVerifying(true);
+    try {
+      const testConfig: GmailConfig = {
+        ...currentConfig,
+        provider: inlineProvider,
+        apiKey: inlineKey.trim(),
+        senderEmail: inlineSender.trim() || 'recruiting@talentdossier.ai',
+        senderName: 'Talent Acquisition Team'
+      };
+
+      const result = await GmailSyncService.testConnection(testConfig);
+      if (!result.success) {
+        setVerifyError(`Connection failed: ${result.message} Please check your credentials and try again.`);
+        setIsVerifying(false);
+        return;
+      }
+
+      // 2. Connection verified! Save config
+      GmailSyncService.saveConfig(testConfig);
+      setIsConfigured(true);
+      setCurrentConfig(testConfig);
+      setIsVerifying(false);
+
+      // 3. Now dispatch email
+      await executeDispatch();
+    } catch (err: any) {
+      setVerifyError(`Connection error: ${err?.message || 'Host unreachable'}. Please verify key and try again.`);
+      setIsVerifying(false);
+    }
+  };
+
+  const executeDispatch = async () => {
     if (!recipient.trim() || !subject.trim() || !body.trim()) return;
     setIsSending(true);
     try {
@@ -63,17 +132,27 @@ export const EmailApprovalModal: React.FC<EmailApprovalModalProps> = ({
       onEmailSent?.(log);
       setTimeout(() => {
         onClose();
-      }, 1200);
+      }, 1500);
     } catch (err) {
       console.error('Email dispatch error:', err);
+      setVerifyError('Failed to dispatch message via mail gateway.');
     } finally {
       setIsSending(false);
     }
   };
 
+  const handleSendStandard = async () => {
+    if (!isConfigured) {
+      handleVerifyAndSend();
+      return;
+    }
+    await executeDispatch();
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[92vh]">
+        
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white">
           <div className="flex items-center gap-3">
@@ -88,13 +167,14 @@ export const EmailApprovalModal: React.FC<EmailApprovalModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-300">
-                Candidate synchronized to <span className="font-bold text-white">{targetStatus}</span>. Confirm or customize dispatch.
+                Candidate synchronized to <span className="font-bold text-white">{targetStatus}</span>. Confirm or customize automated dispatch.
               </p>
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleDismiss}
             className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+            title="Cancel & Close"
           >
             <X className="w-5 h-5" />
           </button>
@@ -102,6 +182,7 @@ export const EmailApprovalModal: React.FC<EmailApprovalModalProps> = ({
 
         {/* Content */}
         <div className="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
+          
           {/* Status sync callout */}
           <div className="p-3 bg-indigo-50/70 border border-indigo-100 rounded-xl flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -110,53 +191,90 @@ export const EmailApprovalModal: React.FC<EmailApprovalModalProps> = ({
               </div>
               <div>
                 <div className="font-semibold text-slate-900 text-sm">{candidate.name}</div>
-                <div className="text-[11px] text-slate-500">{candidate.currentRole} • Match Score: <strong className="text-indigo-600">{candidate.matchScore}%</strong></div>
+                <div className="text-[11px] text-slate-500">{candidate.currentRole} • Match: <strong className="text-indigo-600">{candidate.matchScore}%</strong></div>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] uppercase font-bold text-slate-400">Trigger:</span>
+              <span className="text-[10px] uppercase font-bold text-slate-400">Dispatch Trigger:</span>
               <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                targetStatus === 'Interview Ready'
+                targetStatus === 'Passed Screen' || targetStatus === 'Offer Extended'
                   ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                  : targetStatus === 'Interview Ready'
+                  ? 'bg-indigo-100 text-indigo-800 border border-indigo-200'
                   : targetStatus === 'Needs Review'
                   ? 'bg-amber-100 text-amber-800 border border-amber-200'
                   : 'bg-rose-100 text-rose-800 border border-rose-200'
               }`}>
-                {targetStatus}
+                {targetStatus === 'Passed Screen' || targetStatus === 'Offer Extended' ? 'Selected for Role' : targetStatus}
               </span>
             </div>
           </div>
 
-          {/* Gmail Connection Status Notice */}
-          {!isGmailConfigured ? (
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2.5">
-              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <div className="font-semibold text-amber-900">Gmail API Key / App Password Not Configured</div>
-                <div className="text-amber-700 text-[11px] mt-0.5">
-                  You can preview or copy the generated message now, or configure your Gmail API key to send directly via Google Workspace.
+          {/* MISSING CREDENTIALS / INLINE SETUP GATE */}
+          {!isConfigured ? (
+            <div className="p-4 bg-amber-50/90 border border-amber-200 rounded-xl space-y-3">
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h4 className="font-bold text-amber-900 text-xs">
+                    SMTP / Email Service Key Missing
+                  </h4>
+                  <p className="text-amber-800 text-[11px] mt-0.5 leading-relaxed">
+                    Automated email <strong>cannot be sent</strong> until an API key or SMTP password is provided. Please supply credentials below; we will verify the connection first before transmitting.
+                  </p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={onOpenGmailSettings}
-                className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg text-[11px] flex items-center gap-1 shrink-0 shadow-xs"
-              >
-                <Settings className="w-3 h-3" />
-                Configure Key
-              </button>
+
+              {verifyError && (
+                <div className="p-2.5 bg-rose-100 border border-rose-200 text-rose-800 rounded-lg text-[11px] flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{verifyError}</span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Provider</label>
+                  <select
+                    value={inlineProvider}
+                    onChange={e => setInlineProvider(e.target.value as any)}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="gmail">Google Gmail (App Password)</option>
+                    <option value="sendgrid">SendGrid API</option>
+                    <option value="smtp">Custom SMTP Server</option>
+                  </select>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    API Key / SMTP App Password *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="password"
+                      value={inlineKey}
+                      onChange={e => { setInlineKey(e.target.value); setVerifyError(null); }}
+                      placeholder="e.g. 16-character Gmail App Password or SG.xxx"
+                      className="w-full bg-white border border-slate-300 rounded-lg pl-8 pr-3 py-1.5 text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <Key className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                  </div>
+                </div>
+              </div>
             </div>
           ) : (
             <div className="p-2.5 bg-emerald-50/60 border border-emerald-200 rounded-xl flex items-center justify-between text-[11px] text-emerald-800">
               <span className="flex items-center gap-1.5 font-medium">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                Gmail Synced: <strong className="font-mono text-emerald-900">{gmailConfig.senderEmail}</strong>
+                Email Synced: <strong className="font-mono text-emerald-900">{currentConfig.senderEmail}</strong> ({currentConfig.provider.toUpperCase()})
               </span>
               <button
-                onClick={onOpenGmailSettings}
-                className="text-emerald-700 hover:text-emerald-900 underline font-medium"
+                type="button"
+                onClick={() => setIsConfigured(false)}
+                className="text-emerald-700 hover:text-emerald-900 underline font-medium cursor-pointer"
               >
-                Change settings
+                Change credentials
               </button>
             </div>
           )}
@@ -164,11 +282,12 @@ export const EmailApprovalModal: React.FC<EmailApprovalModalProps> = ({
           {/* Form Fields */}
           <div className="space-y-3">
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">Recipient Email</label>
+              <label className="block font-semibold text-slate-700 mb-1">Recipient Email (from resume)</label>
               <input
                 type="email"
                 value={recipient}
                 onChange={e => setRecipient(e.target.value)}
+                placeholder="candidate@example.com"
                 className="w-full text-xs bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
               />
             </div>
@@ -185,14 +304,14 @@ export const EmailApprovalModal: React.FC<EmailApprovalModalProps> = ({
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="font-semibold text-slate-700">Personalized Email Body</label>
+                <label className="font-semibold text-slate-700">Automated Notification Body</label>
                 <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
                   <Sparkles className="w-3 h-3 text-indigo-500" />
-                  Auto-grounded in candidate's matched skills & interview questions
+                  Personalized to {candidate.name}
                 </span>
               </div>
               <textarea
-                rows={9}
+                rows={8}
                 value={body}
                 onChange={e => setBody(e.target.value)}
                 className="w-full text-xs font-mono bg-white border border-slate-200 rounded-lg p-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 leading-relaxed"
@@ -209,28 +328,58 @@ export const EmailApprovalModal: React.FC<EmailApprovalModalProps> = ({
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 Email successfully dispatched to {candidate.name}!
               </span>
+            ) : !isConfigured ? (
+              <span className="text-amber-700 font-medium flex items-center gap-1">
+                <Lock className="w-3 h-3" />
+                Credentials required before transmission.
+              </span>
             ) : (
-              <span>HR Approval is required prior to email transmission.</span>
+              <span>HR Approval confirmed before automated dispatch.</span>
             )}
           </div>
 
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={onClose}
-              disabled={isSending}
-              className="px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900"
+              onClick={handleDismiss}
+              disabled={isSending || isVerifying}
+              className="px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 cursor-pointer"
             >
-              Skip / Do Not Send
+              Cancel / Do Not Send
             </button>
+
             <button
               type="button"
-              onClick={handleSend}
-              disabled={isSending || sentSuccess}
-              className="px-4 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition-colors flex items-center gap-1.5 disabled:opacity-50"
+              onClick={handleSendStandard}
+              disabled={isSending || isVerifying || sentSuccess}
+              className="px-4 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
             >
-              <Send className={`w-3.5 h-3.5 ${isSending ? 'animate-bounce' : ''}`} />
-              <span>{isSending ? 'Sending via Gmail...' : sentSuccess ? 'Dispatched!' : 'Approve & Send via Gmail'}</span>
+              {isVerifying ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Verifying Connection...</span>
+                </>
+              ) : isSending ? (
+                <>
+                  <Send className="w-3.5 h-3.5 animate-bounce" />
+                  <span>Dispatching Email...</span>
+                </>
+              ) : sentSuccess ? (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Dispatched!</span>
+                </>
+              ) : !isConfigured ? (
+                <>
+                  <Key className="w-3.5 h-3.5" />
+                  <span>Verify Connection & Send</span>
+                </>
+              ) : (
+                <>
+                  <Send className="w-3.5 h-3.5" />
+                  <span>Approve & Send Email</span>
+                </>
+              )}
             </button>
           </div>
         </div>
