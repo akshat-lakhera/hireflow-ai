@@ -315,13 +315,6 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
     const query = (userText || input).trim();
     if (!query || isLoading) return;
 
-    // Fast-path client action triggers for natural commands
-    if (query.toLowerCase().includes('screen all') || query.toLowerCase().includes('run screener') || query.toLowerCase().includes('autonomous screen')) {
-      if (onRunAutonomousScreener) {
-        onRunAutonomousScreener();
-      }
-    }
-
     const userMsg: ChatMessage = {
       id: `msg-${Date.now()}`,
       sender: 'user',

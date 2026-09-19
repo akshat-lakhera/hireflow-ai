@@ -373,7 +373,11 @@ export const AutonomousScreenerModal: React.FC<AutonomousScreenerModalProps> = (
                         </div>
 
                         <div className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100 font-sans leading-relaxed">
-                          <strong className="text-slate-700">Agent Reasoning: </strong>
+                          <div className="flex items-center justify-between text-[10px] text-slate-500 font-semibold mb-1 uppercase tracking-wider">
+                            <span>Evaluated by: {log.decisionSource}</span>
+                            <span>{log.timestamp}</span>
+                          </div>
+                          <strong className="text-slate-700">Reasoning: </strong>
                           {log.reasoning}
                         </div>
                       </div>

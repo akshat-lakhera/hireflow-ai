@@ -1,5 +1,6 @@
 import { CandidateCaseFile, RoleSetup } from '../types';
 import { DatabaseService } from './databaseService';
+import { AiService } from './aiApi';
 
 export interface AgentActionLog {
   candidateId: string;
@@ -8,6 +9,7 @@ export interface AgentActionLog {
   newStatus: CandidateCaseFile['reviewStatus'];
   action: string;
   reasoning: string;
+  decisionSource: string;
   matchScore: number;
   timestamp: string;
 }
@@ -17,6 +19,7 @@ export interface AutonomousScreeningResult {
   promotedToInterview: number;
   needsReview: number;
   rejected: number;
+  engineUsed: string;
   actionLogs: AgentActionLog[];
   updatedCandidates: CandidateCaseFile[];
   summary: string;
@@ -24,8 +27,9 @@ export interface AutonomousScreeningResult {
 
 export class AutonomousScreenerAgent {
   /**
-   * Autonomously screens the entire candidate pool against the active role blueprint,
-   * takes decisive action on candidate stages, writes audit notes, and persists to the database.
+   * Autonomously screens the candidate pool against the active role blueprint.
+   * If an AI API key is configured (Groq/Gemini/OpenAI), it utilizes live LLM agent reasoning.
+   * If no API key is present, it uses the local deterministic verification engine with 100% honest attribution.
    */
   public static async runAutonomousScreening(
     candidates: CandidateCaseFile[],
@@ -35,14 +39,16 @@ export class AutonomousScreenerAgent {
     const actionLogs: AgentActionLog[] = [];
     const total = candidates.length;
     const now = new Date().toISOString();
+    const isAi = AiService.isConfigured();
+    const activeProvider = isAi ? AiService.getConfig().provider.toUpperCase() : 'LOCAL';
 
-    onProgress?.('Ingesting role blueprint & candidate embeddings...', 0, total);
+    onProgress?.(`Initializing ${isAi ? `Autonomous LLM (${activeProvider})` : 'Local Deterministic'} Screener Pipeline...`, 0, total);
 
     const updatedCandidates: CandidateCaseFile[] = [];
 
     for (let i = 0; i < candidates.length; i++) {
       const candidate = candidates[i];
-      onProgress?.(`Evaluating ${candidate.name} against ${role.title}...`, i + 1, total);
+      onProgress?.(`Analyzing ${candidate.name} against ${role.title} (${i + 1}/${total})...`, i + 1, total);
 
       // Evaluate required skills coverage across matchedSkills and evidenceMap
       const missingRequired = role.mustHaveSkills.filter(req => {
@@ -65,30 +71,49 @@ export class AutonomousScreenerAgent {
 
       let targetStatus: CandidateCaseFile['reviewStatus'] = candidate.reviewStatus;
       let actionReason = '';
+      let decisionSource = 'Local Rule Engine';
 
-      if (candidate.matchScore >= 80 && missingRequired.length === 0) {
-        targetStatus = 'Interview Ready';
-        actionReason = `Autonomous Agent: Exceptional match (${candidate.matchScore}%). Verified all ${role.mustHaveSkills.length} must-have criteria. Auto-promoted to Interview Ready.`;
-      } else if (candidate.matchScore >= 65 && missingRequired.length <= 1) {
-        targetStatus = 'Needs Review';
-        actionReason = `Autonomous Agent: Moderate fit (${candidate.matchScore}%). Flagged verification item: ${missingRequired[0] || 'Domain alignment'}. Held for team review.`;
-      } else {
-        targetStatus = 'Rejected';
-        actionReason = `Autonomous Agent: High gap risk (${candidate.matchScore}%). Missing critical must-have criteria (${missingRequired.join(', ') || 'Insufficient technical depth'}). Screened out.`;
+      // 1. Live LLM Autonomous Evaluation if API key is configured
+      if (isAi) {
+        try {
+          const cfg = AiService.getConfig();
+          onProgress?.(`LLM Agent (${cfg.provider.toUpperCase()}) reasoning for ${candidate.name}...`, i + 1, total);
+          const llmRes = await AiService.screenCandidateWithLLM(candidate, role);
+          targetStatus = llmRes.targetStatus;
+          actionReason = llmRes.actionReason;
+          decisionSource = `Autonomous AI Agent (${cfg.provider.toUpperCase()}: ${cfg.model})`;
+        } catch (err: any) {
+          console.warn(`Live LLM screening failed for ${candidate.name}, using local engine fallback:`, err);
+        }
+      }
+
+      // 2. Deterministic Local Rule Engine fallback (with honest attribution)
+      if (!actionReason) {
+        decisionSource = 'Local Rule Engine (Offline)';
+        if (candidate.matchScore >= 80 && missingRequired.length === 0) {
+          targetStatus = 'Interview Ready';
+          actionReason = `[Local Engine] Verified all ${role.mustHaveSkills.length} must-have criteria with score ${candidate.matchScore}%. Promoted to Interview Ready.`;
+        } else if (candidate.matchScore >= 65 && missingRequired.length <= 1) {
+          targetStatus = 'Needs Review';
+          actionReason = `[Local Engine] Moderate fit (${candidate.matchScore}%). Flagged verification item: ${missingRequired[0] || 'Domain alignment'}. Held for team review.`;
+        } else {
+          targetStatus = 'Rejected';
+          actionReason = `[Local Engine] High gap risk (${candidate.matchScore}%). Missing critical must-have criteria: ${missingRequired.join(', ') || 'Technical depth'}. Screened out.`;
+        }
       }
 
       const statusChanged = targetStatus !== candidate.reviewStatus;
 
       const agentAuditEntry = {
         id: `audit-agent-${Date.now()}-${i}`,
-        action: `Autonomous Agent Decision: ${targetStatus}`,
+        action: `Decision: ${targetStatus} via ${decisionSource}`,
         timestamp: 'Just now',
         note: actionReason
       };
 
       const agentTeamNote = {
         id: `note-agent-${Date.now()}-${i}`,
-        author: 'Autonomous Screener Agent',
+        author: decisionSource,
         text: actionReason,
         timestamp: 'Just now'
       };
@@ -108,6 +133,7 @@ export class AutonomousScreenerAgent {
         newStatus: targetStatus,
         action: statusChanged ? `Status updated: ${candidate.reviewStatus} → ${targetStatus}` : `Status confirmed: ${targetStatus}`,
         reasoning: actionReason,
+        decisionSource,
         matchScore: candidate.matchScore,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       });
@@ -125,14 +151,16 @@ export class AutonomousScreenerAgent {
     const promotedCount = actionLogs.filter(l => l.newStatus === 'Interview Ready').length;
     const needsReviewCount = actionLogs.filter(l => l.newStatus === 'Needs Review').length;
     const rejectedCount = actionLogs.filter(l => l.newStatus === 'Rejected').length;
+    const engineUsed = isAi ? `Live AI Agent (${activeProvider})` : 'Local Deterministic Engine (Offline)';
 
-    const summary = `Autonomous Screening Complete: Evaluated ${total} candidate${total === 1 ? '' : 's'}. Advanced ${promotedCount} to Interview Ready, held ${needsReviewCount} for recruiter review, and screened out ${rejectedCount} based on must-have role requirements.`;
+    const summary = `Screening Complete via ${engineUsed}: Evaluated ${total} candidate${total === 1 ? '' : 's'}. Advanced ${promotedCount} to Interview Ready, held ${needsReviewCount} for recruiter review, and screened out ${rejectedCount} based on role requirements.`;
 
     return {
       totalEvaluated: total,
       promotedToInterview: promotedCount,
       needsReview: needsReviewCount,
       rejected: rejectedCount,
+      engineUsed,
       actionLogs,
       updatedCandidates,
       summary

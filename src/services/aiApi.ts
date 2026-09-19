@@ -398,6 +398,115 @@ JSON Structure required:
   }
 
   /**
+   * Autonomous Agent Screening Decision via Live LLM
+   */
+  public static async screenCandidateWithLLM(
+    candidate: any,
+    role: RoleSetup
+  ): Promise<{
+    targetStatus: 'Interview Ready' | 'Needs Review' | 'Rejected';
+    actionReason: string;
+  }> {
+    const config = this.getConfig();
+    if (!this.isConfigured()) {
+      throw new Error('AI API Key is not configured.');
+    }
+
+    const prompt = `You are the Autonomous Technical Screening Agent evaluating candidate dossiers for the role "${role.title}" (${role.seniority}, ${role.teamType}).
+
+Role Must-Have Skills: ${JSON.stringify(role.mustHaveSkills)}
+Role Nice-To-Have Skills: ${JSON.stringify(role.niceToHaveSkills)}
+
+Candidate Dossier:
+- Name: ${candidate.name}
+- Headline: ${candidate.currentRole}
+- Match Score: ${candidate.matchScore}% (${candidate.fitBadge})
+- Matched Skills: ${candidate.matchedSkills.join(', ')}
+- Missing Skills: ${candidate.missingSkills.join(', ')}
+- Projects: ${(candidate.projects || []).map((p: any) => `${p.name}: ${p.description}`).join('; ') || 'None documented'}
+- Work Experience: ${(candidate.experiences || []).map((e: any) => `${e.role} at ${e.company} (${e.duration})`).join('; ') || 'None documented'}
+- Evidence Map: ${(candidate.evidenceMap || []).map((ev: any) => `${ev.requirement} [${ev.status}, ${ev.confidence}]: "${ev.snippet}"`).join('; ') || 'None'}
+- Risk Flags: ${(candidate.riskFlags || []).map((r: any) => `${r.label} (${r.details})`).join('; ') || 'None'}
+
+Your Mission:
+Autonomously analyze whether this candidate should be advanced to the technical interview stage, held for manual review, or screened out.
+
+Output STRICT JSON ONLY:
+{
+  "targetStatus": "Interview Ready" | "Needs Review" | "Rejected",
+  "actionReason": "High-signal 2-sentence rationale explicitly citing which must-have skills are satisfied or missing and what evidence justifies the decision."
+}`;
+
+    let jsonStr = '';
+
+    if (config.provider === 'groq') {
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${config.apiKey.trim()}`
+        },
+        body: JSON.stringify({
+          model: config.model || 'llama-3.3-70b-versatile',
+          messages: [{ role: 'user', content: prompt }],
+          response_format: { type: 'json_object' },
+          temperature: 0.1
+        })
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message || `Groq screening error: HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      jsonStr = data.choices?.[0]?.message?.content || '{}';
+    } else if (config.provider === 'gemini') {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${config.model || 'gemini-1.5-flash'}:generateContent?key=${config.apiKey.trim()}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: 'application/json', temperature: 0.1 }
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error(`Gemini screening error: HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      jsonStr = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+    } else {
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${config.apiKey.trim()}`
+        },
+        body: JSON.stringify({
+          model: config.model || 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+          response_format: { type: 'json_object' },
+          temperature: 0.1
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error(`OpenAI screening error: HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      jsonStr = data.choices?.[0]?.message?.content || '{}';
+    }
+
+    const parsed = JSON.parse(jsonStr);
+    const validStatuses = ['Interview Ready', 'Needs Review', 'Rejected'];
+    const targetStatus = validStatuses.includes(parsed.targetStatus) ? (parsed.targetStatus as any) : 'Needs Review';
+    const actionReason = parsed.actionReason || `Evaluated candidate against ${role.title} requirements.`;
+
+    return { targetStatus, actionReason };
+  }
+
+  /**
    * RAG Recruiter Agent: Conversational queries over all candidates, resumes, and scores
    */
   public static async chatWithRecruiterAgent(
