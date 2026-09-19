@@ -72,6 +72,39 @@ export class AudioService {
     }
   }
 
+  private static lockedVoice: SpeechSynthesisVoice | null = null;
+  private static isVoiceInitialized: boolean = false;
+
+  /**
+   * Pre-loads and locks a single high-quality voice so the app never switches voices.
+   */
+  public static initVoice(): void {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+
+    const selectBestVoice = () => {
+      const voices = window.speechSynthesis.getVoices();
+      if (!voices || voices.length === 0) return;
+
+      // Priority: Lock to one natural, high-fidelity English voice
+      const preferred = voices.find(v => 
+        (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Jenny') || v.name.includes('Samantha')) &&
+        (v.lang === 'en-US' || v.lang === 'en-GB' || v.lang.startsWith('en'))
+      ) || voices.find(v => v.lang === 'en-US') || voices.find(v => v.lang.startsWith('en')) || voices[0];
+
+      if (preferred) {
+        this.lockedVoice = preferred;
+        this.isVoiceInitialized = true;
+      }
+    };
+
+    selectBestVoice();
+    if (!this.lockedVoice && window.speechSynthesis.onvoiceschanged !== undefined) {
+      window.speechSynthesis.onvoiceschanged = () => {
+        selectBestVoice();
+      };
+    }
+  }
+
   public static speak(text: string, onDone?: () => void): void {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
       if (onDone) onDone();
@@ -81,18 +114,24 @@ export class AudioService {
     // Cancel any previous speech
     window.speechSynthesis.cancel();
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 1.05;
+    // Clean text for natural speech (remove excessive quotes or markup)
+    const cleanText = text.replace(/["""]/g, '').trim();
+    if (!cleanText) {
+      if (onDone) onDone();
+      return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.rate = 1.0;
     utterance.pitch = 1.0;
 
-    // Pick a natural English voice if available
-    const voices = window.speechSynthesis.getVoices();
-    const naturalVoice = voices.find(v => 
-      (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Daniel')) && v.lang.startsWith('en')
-    ) || voices.find(v => v.lang.startsWith('en'));
+    // Ensure voice is initialized
+    if (!this.lockedVoice) {
+      this.initVoice();
+    }
 
-    if (naturalVoice) {
-      utterance.voice = naturalVoice;
+    if (this.lockedVoice) {
+      utterance.voice = this.lockedVoice;
     }
 
     utterance.onend = () => {
@@ -113,3 +152,9 @@ export class AudioService {
     }
   }
 }
+
+// Auto-initialize voice on load
+if (typeof window !== 'undefined') {
+  AudioService.initVoice();
+}
+

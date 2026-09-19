@@ -44,13 +44,16 @@ export const InterviewKitModal: React.FC<InterviewKitModalProps> = ({
   const [isRecording, setIsRecording] = useState(false);
   const [isPlayingTTS, setIsPlayingTTS] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [kitMode, setKitMode] = useState<'interviewer' | 'candidate'>('interviewer');
 
   const handleSelectQuestion = (q: InterviewKitQuestion) => {
+    AudioService.cancelSpeech();
+    setIsPlayingTTS(false);
+    AudioService.stopListening();
+    setIsRecording(false);
     setActiveQuestionId(q.id);
     setCandidateAnswer(q.candidateAnswer || '');
     setSavedSuccess(false);
-    AudioService.cancelSpeech();
-    setIsPlayingTTS(false);
   };
 
   const toggleRecording = () => {
@@ -60,10 +63,13 @@ export const InterviewKitModal: React.FC<InterviewKitModalProps> = ({
     } else {
       const started = AudioService.startListening(
         (transcript, _isFinal) => {
-          setCandidateAnswer(prev => prev ? `${prev} ${transcript}` : transcript);
+          setCandidateAnswer(prev => {
+            const separator = prev && !prev.endsWith(' ') ? ' ' : '';
+            return prev + separator + transcript;
+          });
         },
-        (error) => {
-          console.warn('Speech recognition warning:', error);
+        (err) => {
+          alert(`Speech recognition error: ${err}`);
           setIsRecording(false);
         },
         () => {
@@ -82,7 +88,8 @@ export const InterviewKitModal: React.FC<InterviewKitModalProps> = ({
       setIsPlayingTTS(false);
     } else if (activeQuestion) {
       setIsPlayingTTS(true);
-      AudioService.speak(`${activeQuestion.questionText}. What to look for: ${activeQuestion.followUpProbe}`, () => {
+      // ONLY read the question text - NEVER read the confidential evaluation rubric
+      AudioService.speak(activeQuestion.questionText, () => {
         setIsPlayingTTS(false);
       });
     }
@@ -127,17 +134,45 @@ export const InterviewKitModal: React.FC<InterviewKitModalProps> = ({
           </div>
 
           <div className="flex items-center gap-3">
-            <select
-              value={candidate.reviewStatus}
-              onChange={(e) => onUpdateStatus(candidate.id, e.target.value as any)}
-              className="text-xs font-semibold bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-slate-700 hover:border-slate-300 focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="Interview Ready">Status: Interview Ready</option>
-              <option value="Needs Review">Status: Needs Review</option>
-              <option value="Passed Screen">Status: Passed Screen</option>
-              <option value="Offer Extended">Status: Offer Extended</option>
-              <option value="Rejected">Status: Rejected</option>
-            </select>
+            {/* View Mode Switcher: Interviewer vs Candidate */}
+            <div className="bg-slate-100 p-0.5 rounded-lg border border-slate-200 flex items-center text-xs font-semibold">
+              <button
+                onClick={() => setKitMode('interviewer')}
+                className={`px-2.5 py-1 rounded-md transition-all ${
+                  kitMode === 'interviewer'
+                    ? 'bg-white text-indigo-600 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Shows confidential evaluation rubric, what to look for, and recruiter notes"
+              >
+                Interviewer View
+              </button>
+              <button
+                onClick={() => setKitMode('candidate')}
+                className={`px-2.5 py-1 rounded-md transition-all ${
+                  kitMode === 'candidate'
+                    ? 'bg-white text-indigo-600 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Candidate practice/screen view: hides confidential rubrics and scoring notes"
+              >
+                Candidate View
+              </button>
+            </div>
+
+            {kitMode === 'interviewer' && (
+              <select
+                value={candidate.reviewStatus}
+                onChange={(e) => onUpdateStatus(candidate.id, e.target.value as any)}
+                className="text-xs font-semibold bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-slate-700 hover:border-slate-300 focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="Interview Ready">Status: Interview Ready</option>
+                <option value="Needs Review">Status: Needs Review</option>
+                <option value="Passed Screen">Status: Passed Screen</option>
+                <option value="Offer Extended">Status: Offer Extended</option>
+                <option value="Rejected">Status: Rejected</option>
+              </select>
+            )}
 
             <button
               onClick={onClose}
@@ -219,9 +254,10 @@ export const InterviewKitModal: React.FC<InterviewKitModalProps> = ({
                         ? 'bg-indigo-600 text-white border-indigo-600'
                         : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                     }`}
+                    title="Read question aloud (Question only, rubric is never read aloud)"
                   >
-                    {isPlayingTTS ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-                    <span>{isPlayingTTS ? 'Stop Audio' : 'Read Aloud'}</span>
+                    {isPlayingTTS ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5 text-indigo-600" />}
+                    <span>{isPlayingTTS ? 'Stop Audio' : 'Read Question Aloud'}</span>
                   </button>
                 </div>
 
@@ -230,28 +266,42 @@ export const InterviewKitModal: React.FC<InterviewKitModalProps> = ({
                 </h2>
               </div>
 
-              {/* What to look for */}
-              <div className="p-4 bg-amber-50/70 border border-amber-200/80 rounded-xl space-y-1">
-                <div className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
-                  <HelpCircle className="w-4 h-4 text-amber-700" />
-                  <span>Evaluation Rubric & What to Look For:</span>
-                </div>
-                <p className="text-xs text-amber-950 leading-relaxed pl-5">
-                  {activeQuestion.followUpProbe}
-                </p>
-                {activeQuestion.concernNote && (
-                  <div className="pl-5 pt-1 text-[11px] text-amber-800 italic">
-                    Note for interviewer: {activeQuestion.concernNote}
+              {/* What to look for (Confidential Interviewer Guidance) */}
+              {kitMode === 'interviewer' ? (
+                <div className="p-4 bg-amber-50/70 border border-amber-200/80 rounded-xl space-y-1">
+                  <div className="text-xs font-bold text-amber-900 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <HelpCircle className="w-4 h-4 text-amber-700" />
+                      <span>Confidential Interviewer Rubric & What to Look For:</span>
+                    </div>
+                    <span className="text-[10px] font-normal text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded">
+                      Hidden from candidate
+                    </span>
                   </div>
-                )}
-              </div>
+                  <p className="text-xs text-amber-950 leading-relaxed pl-5">
+                    {activeQuestion.followUpProbe}
+                  </p>
+                  {activeQuestion.concernNote && (
+                    <div className="pl-5 pt-1 text-[11px] text-amber-800 italic">
+                      Note for interviewer: {activeQuestion.concernNote}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="p-4 bg-indigo-50/50 border border-indigo-100 rounded-xl text-xs text-indigo-900">
+                  <div className="font-semibold mb-1">Candidate Screening Instructions:</div>
+                  <p className="text-indigo-800 leading-relaxed">
+                    Listen to or read the question above. Click the <strong>Voice Dictate</strong> button below to speak your verbal response, or type your answer in the field provided.
+                  </p>
+                </div>
+              )}
 
               {/* Response Note Taking Area */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-semibold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
                     <MessageSquare className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Candidate Answer & Interview Notes</span>
+                    <span>{kitMode === 'interviewer' ? 'Candidate Answer & Interview Notes' : 'Your Answer'}</span>
                   </label>
 
                   {/* Native Speech-to-Text Microphone Button */}
