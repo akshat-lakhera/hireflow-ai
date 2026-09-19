@@ -10,10 +10,7 @@ import {
   MicOff, 
   X, 
   Trash2, 
-  User, 
-  ChevronRight,
   ArrowUpRight,
-  CheckCircle2,
   AlertCircle
 } from 'lucide-react';
 

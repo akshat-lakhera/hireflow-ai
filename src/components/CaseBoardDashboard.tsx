@@ -1,24 +1,20 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { CandidateCaseFile, RoleSetup, ReviewMode } from '../types';
 import { RolePanel } from './RolePanel';
 import { CandidateCaseFileCard } from './CandidateCaseFileCard';
 import { CandidateExecutiveDossier } from './CandidateExecutiveDossier';
 import { InsightRail } from './InsightRail';
 import { 
-  SlidersHorizontal, 
   UploadCloud, 
   Sparkles, 
   Trash2, 
-  RotateCcw, 
   Users, 
   Briefcase,
-  CheckCircle2,
   FileSpreadsheet,
   PanelLeft,
   PanelRight,
   ChevronLeft,
   ChevronRight,
-  MessageSquare,
   Bot,
   Database,
   Scale

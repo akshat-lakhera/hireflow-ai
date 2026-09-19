@@ -8,8 +8,7 @@ import {
   MapPin, 
   Briefcase, 
   ArrowRight,
-  Sparkles,
-  Award
+  Sparkles
 } from 'lucide-react';
 
 interface CandidateCompareModalProps {
