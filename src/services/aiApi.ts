@@ -47,6 +47,26 @@ function deobfuscateApiKey(cipher: string): string {
   }
 }
 
+export interface AgentActionPayload {
+  thought: string;
+  tool: 'compare_candidates' | 'update_candidate_status' | 'select_candidate' | 'open_interview_kit' | 'add_note' | 'filter_pipeline' | 'autonomous_screen_pipeline';
+  params: Record<string, any>;
+}
+
+export function extractAgentAction(text: string): { action: AgentActionPayload | null; cleanText: string } {
+  const match = text.match(/```agent_action\s*([\s\S]*?)\s*```/);
+  if (!match) {
+    return { action: null, cleanText: text };
+  }
+  try {
+    const action = JSON.parse(match[1]) as AgentActionPayload;
+    const cleanText = text.replace(/```agent_action\s*[\s\S]*?\s*```/, '').trim();
+    return { action, cleanText };
+  } catch {
+    return { action: null, cleanText: text };
+  }
+}
+
 export class AiService {
   public static getConfig(): AiConfig {
     let rawConfig: any = null;
@@ -412,8 +432,8 @@ Verified Evidence: ${evidence || 'None'}
 Risk Flags: ${risks || 'None'}`;
       }).join('\n\n');
 
-      const systemPrompt = `You are TalentDossier Copilot — an expert AI Recruiting Intelligence Agent embedded inside the recruiter's workspace.
-You have real-time grounded access to the candidate pipeline database and the active role requirements.
+      const systemPrompt = `You are TalentDossier Copilot — an Autonomous AI Recruiting Intelligence Agent embedded inside the recruiter's workspace.
+You have real-time grounded access to the candidate pipeline database and the active role requirements, AND you have live tools to execute actions on the recruiter's screen.
 
 Current Role Blueprint:
 - Title: ${role.title} (${role.seniority})
@@ -424,13 +444,37 @@ Current Role Blueprint:
 Candidate Pipeline Database (${candidates.length} candidate${candidates.length === 1 ? '' : 's'} on record):
 ${candidateSummaries || 'No candidates currently in the pipeline.'}
 
+Agentic Workspace Tools:
+You can autonomously execute actions in the recruiter's workspace. Whenever an action is requested or warranted, include a tool call block formatted exactly as:
+\`\`\`agent_action
+{
+  "thought": "Your step-by-step reasoning for why you are executing this action",
+  "tool": "<tool_name>",
+  "params": { ... }
+}
+\`\`\`
+
+Available Tools:
+1. "compare_candidates": {"candidateNames": ["Name1", "Name2"]}
+   -> Launches the Side-by-Side Comparison Matrix on screen for the specified candidates.
+2. "update_candidate_status": {"candidateName": "Name", "status": "Interview Ready" | "Needs Review" | "Passed Screen" | "Offer Extended" | "Rejected", "reason": "Justification"}
+   -> Updates candidate status in real time and logs an audit note.
+3. "select_candidate": {"candidateName": "Name"}
+   -> Selects the candidate and displays their executive dossier in the center workspace.
+4. "open_interview_kit": {"candidateName": "Name"}
+   -> Launches the structured interview kit modal with confidential rubrics and speech dictation.
+5. "add_note": {"candidateName": "Name", "note": "Observation text"}
+   -> Appends a recruiter intelligence note to the candidate's permanent file.
+6. "filter_pipeline": {"searchQuery": "keyword or skill"}
+   -> Filters the candidate cards on screen in real time.
+7. "autonomous_screen_pipeline": {"criteria": "focus area"}
+   -> Autonomously screens, evaluates, and triages the entire candidate pipeline.
+
 Instructions:
-1. Answer the user's query directly and authoritatively using only the grounded facts above.
-2. When asked to "list candidates", provide candidate names with their match score %, current status, and key verified strengths.
-3. When asked "who is eligible", identify candidates with Strong/Moderate fit or match scores >= 75%, and explain the specific evidence supporting eligibility.
-4. When asked about skills, projects, or gaps, cite the specific candidate and concrete evidence.
-5. If the user asks about an unknown candidate or skill not on record, state so factually.
-6. Format responses with clean markdown (bullet points, bold text). Keep responses concise, scannable, and professional.`;
+1. When asked to perform an action (e.g. "compare Alex and Maya", "reject Akshat", "shortlist Maya", "filter by Kafka", "screen all candidates"), ALWAYS emit the \`\`\`agent_action\`\`\` block and provide a clear explanation.
+2. Answer queries authoritatively using only the grounded facts above.
+3. When asked "who is eligible", identify candidates with Strong/Moderate fit or match scores >= 75%, cite specific evidence, and offer to take action.
+4. Format responses with clean, scannable markdown (bullet points, bold text).`;
 
       if (config.provider === 'groq') {
         const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {

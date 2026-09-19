@@ -15,9 +15,10 @@ import {
   PanelRight,
   ChevronLeft,
   ChevronRight,
-  Bot,
-  Database,
-  Scale
+  Bot, 
+  Database, 
+  Scale,
+  Zap
 } from 'lucide-react';
 import { AiService } from '../services/aiApi';
 import { RecruiterAgentCopilot } from './RecruiterAgentCopilot';
@@ -34,6 +35,7 @@ interface CaseBoardDashboardProps {
   onOpenUpload: () => void;
   onOpenAiSettings: () => void;
   onOpenDatabaseSettings?: () => void;
+  onOpenAutonomousScreener?: () => void;
   onLoadSingleDemoCase: () => void;
   onClearBoard: () => void;
   onSetReviewMode: (mode: ReviewMode) => void;
@@ -57,7 +59,7 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
   onOpenUpload,
   onOpenAiSettings,
   onOpenDatabaseSettings,
-
+  onOpenAutonomousScreener,
   onLoadSingleDemoCase,
   onClearBoard,
   onSetReviewMode,
@@ -302,6 +304,18 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
             <Bot className="w-3.5 h-3.5 text-indigo-600" />
             <span className="hidden md:inline">AI Copilot</span>
           </button>
+
+          {/* Autonomous Screener Agent Trigger */}
+          {onOpenAutonomousScreener && (
+            <button
+              onClick={onOpenAutonomousScreener}
+              className="px-2.5 py-1.5 text-xs font-semibold text-white bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 hover:from-indigo-700 hover:to-purple-700 border border-indigo-500/50 rounded-lg flex items-center gap-1.5 transition-all shadow-sm shadow-indigo-600/20 cursor-pointer"
+              title="Run Autonomous Candidate Screener Agent (Multi-step pipeline evaluation & triage)"
+            >
+              <Zap className="w-3.5 h-3.5 fill-indigo-200 text-white animate-pulse" />
+              <span className="hidden sm:inline">Autonomous Screener</span>
+            </button>
+          )}
 
           <button
             onClick={onOpenUpload}
@@ -649,6 +663,12 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
           setMobileTab('dossier');
         }}
         onOpenAiSettings={onOpenAiSettings}
+        onOpenCompare={onOpenCompare}
+        onUpdateStatus={onUpdateStatus}
+        onOpenInterviewKit={onOpenInterviewKit}
+        onAddNote={onAddNote}
+        onFilterPipeline={(q) => setSearchQuery(q)}
+        onRunAutonomousScreener={onOpenAutonomousScreener}
       />
 
     </div>

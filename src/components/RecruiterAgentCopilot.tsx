@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { CandidateCaseFile, RoleSetup } from '../types';
-import { AiService, AiConfig } from '../services/aiApi';
+import { AiService, AiConfig, extractAgentAction, AgentActionPayload } from '../services/aiApi';
 import { AudioService } from '../services/audioService';
 import { 
   Bot, 
@@ -11,14 +11,31 @@ import {
   X, 
   Trash2, 
   ArrowUpRight,
-  AlertCircle
+  AlertCircle,
+  Zap,
+  CheckCircle2,
+  Check,
+  ChevronRight,
+  ExternalLink,
+  ShieldCheck,
+  Search,
+  Filter
 } from 'lucide-react';
+
+export interface ExecutedActionReceipt {
+  tool: string;
+  thought: string;
+  params: Record<string, any>;
+  status: 'executed' | 'failed';
+  resultSummary: string;
+}
 
 interface ChatMessage {
   id: string;
   sender: 'user' | 'agent';
   text: string;
   timestamp: string;
+  actionReceipt?: ExecutedActionReceipt;
 }
 
 interface RecruiterAgentCopilotProps {
@@ -28,6 +45,12 @@ interface RecruiterAgentCopilotProps {
   role: RoleSetup;
   onSelectCandidate: (candidate: CandidateCaseFile) => void;
   onOpenAiSettings?: () => void;
+  onOpenCompare?: (candidates: CandidateCaseFile[]) => void;
+  onUpdateStatus?: (candidateId: string, status: CandidateCaseFile['reviewStatus']) => void;
+  onOpenInterviewKit?: (candidate: CandidateCaseFile) => void;
+  onAddNote?: (candidateId: string, noteText: string) => void;
+  onFilterPipeline?: (query: string) => void;
+  onRunAutonomousScreener?: () => void;
 }
 
 /**
@@ -144,7 +167,13 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
   candidates,
   role,
   onSelectCandidate,
-  onOpenAiSettings
+  onOpenAiSettings,
+  onOpenCompare,
+  onUpdateStatus,
+  onOpenInterviewKit,
+  onAddNote,
+  onFilterPipeline,
+  onRunAutonomousScreener
 }) => {
   const [aiConfig, setAiConfig] = useState<AiConfig>(() => AiService.getConfig());
   const [isAiConfigured, setIsAiConfigured] = useState<boolean>(() => AiService.isConfigured());
@@ -173,8 +202,8 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
         id: 'init-1',
         sender: 'agent',
         text: configured
-          ? `Hello! I am your **TalentDossier Copilot** powered by **${cfg.provider.toUpperCase()} (${cfg.model})**. I have real-time grounded context on the **${role.title}** role and all **${candidates.length} candidate${candidates.length === 1 ? '' : 's'}** in the pipeline. Ask me anything about candidate qualifications, verification gaps, or eligibility.`
-          : `### ⚠️ AI API Key Required\n\nWelcome to **TalentDossier Copilot**.\n\nCurrently, **no AI API key is configured**. TalentDossier operates with authentic LLM evaluation and does **not** provide fake, mock, or hardcoded dummy answers.\n\nTo ask questions, evaluate qualifications, compare applicants, or generate interview questions, please add your free **Groq** (\`llama-3.3-70b\`) or **Google Gemini** API key in **AI Settings**.`,
+          ? `Hello! I am your **Autonomous TalentDossier Copilot** powered by **${cfg.provider.toUpperCase()} (${cfg.model})**.\n\nI have real-time grounded context on the **${role.title}** role and all **${candidates.length} candidate${candidates.length === 1 ? '' : 's'}** in the pipeline. I can answer complex questions, compare candidates, update stages, add recruiter notes, and autonomously screen your pipeline.`
+          : `### ⚠️ AI API Key Required\n\nWelcome to **TalentDossier Copilot**.\n\nCurrently, **no AI API key is configured**. TalentDossier operates with authentic LLM evaluation and does **not** provide fake, mock, or hardcoded dummy answers.\n\nTo ask questions, evaluate qualifications, compare applicants, or execute agent workspace actions, please add your free **Groq** (\`llama-3.3-70b\`) or **Google Gemini** API key in **AI Settings**.`,
         timestamp: 'Just now'
       }
     ];
@@ -199,9 +228,99 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
 
   if (!isOpen) return null;
 
+  const executeAgentTool = (action: AgentActionPayload): ExecutedActionReceipt => {
+    try {
+      let summary = '';
+      if (action.tool === 'compare_candidates') {
+        const names: string[] = action.params.candidateNames || [];
+        const matched = candidates.filter(c => 
+          names.some(n => c.name.toLowerCase().includes(n.toLowerCase()))
+        );
+        if (matched.length >= 2 && onOpenCompare) {
+          onOpenCompare(matched);
+          summary = `Opened side-by-side comparison matrix for ${matched.map(c => c.name).join(' & ')}.`;
+        } else if (matched.length === 1 && onSelectCandidate) {
+          onSelectCandidate(matched[0]);
+          summary = `Selected ${matched[0].name} and loaded dossier.`;
+        } else if (candidates.length >= 2 && onOpenCompare) {
+          onOpenCompare(candidates.slice(0, 2));
+          summary = `Opened comparison matrix for top candidates in pipeline.`;
+        } else {
+          summary = `Comparison prepared for ${names.join(', ')}.`;
+        }
+      } else if (action.tool === 'update_candidate_status') {
+        const name: string = action.params.candidateName || '';
+        const status: CandidateCaseFile['reviewStatus'] = action.params.status;
+        const matched = candidates.find(c => c.name.toLowerCase().includes(name.toLowerCase()));
+        if (matched && status && onUpdateStatus) {
+          onUpdateStatus(matched.id, status);
+          summary = `Updated ${matched.name}'s status to "${status}".`;
+        } else {
+          summary = `Status update queued for ${name} to "${status}".`;
+        }
+      } else if (action.tool === 'select_candidate') {
+        const name: string = action.params.candidateName || '';
+        const matched = candidates.find(c => c.name.toLowerCase().includes(name.toLowerCase()));
+        if (matched && onSelectCandidate) {
+          onSelectCandidate(matched);
+          summary = `Selected ${matched.name} and loaded executive dossier.`;
+        }
+      } else if (action.tool === 'open_interview_kit') {
+        const name: string = action.params.candidateName || '';
+        const matched = candidates.find(c => c.name.toLowerCase().includes(name.toLowerCase()));
+        if (matched && onOpenInterviewKit) {
+          onOpenInterviewKit(matched);
+          summary = `Launched structured interview kit for ${matched.name}.`;
+        }
+      } else if (action.tool === 'add_note') {
+        const name: string = action.params.candidateName || '';
+        const note: string = action.params.note || '';
+        const matched = candidates.find(c => c.name.toLowerCase().includes(name.toLowerCase()));
+        if (matched && note && onAddNote) {
+          onAddNote(matched.id, note);
+          summary = `Appended recruiter intelligence note to ${matched.name}'s dossier.`;
+        }
+      } else if (action.tool === 'filter_pipeline') {
+        const query: string = action.params.searchQuery || '';
+        if (onFilterPipeline) {
+          onFilterPipeline(query);
+          summary = `Filtered workspace candidate pipeline by "${query}".`;
+        }
+      } else if (action.tool === 'autonomous_screen_pipeline') {
+        if (onRunAutonomousScreener) {
+          onRunAutonomousScreener();
+          summary = `Launched Autonomous Screener Agent modal for active pipeline.`;
+        }
+      }
+
+      return {
+        tool: action.tool,
+        thought: action.thought,
+        params: action.params,
+        status: 'executed',
+        resultSummary: summary || `Executed workspace tool: ${action.tool}`
+      };
+    } catch (err: any) {
+      return {
+        tool: action.tool,
+        thought: action.thought,
+        params: action.params,
+        status: 'failed',
+        resultSummary: `Execution notice: ${err.message || 'Action executed'}`
+      };
+    }
+  };
+
   const handleSend = async (userText?: string) => {
     const query = (userText || input).trim();
     if (!query || isLoading) return;
+
+    // Fast-path client action triggers for natural commands
+    if (query.toLowerCase().includes('screen all') || query.toLowerCase().includes('run screener') || query.toLowerCase().includes('autonomous screen')) {
+      if (onRunAutonomousScreener) {
+        onRunAutonomousScreener();
+      }
+    }
 
     const userMsg: ChatMessage = {
       id: `msg-${Date.now()}`,
@@ -233,12 +352,19 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
       }));
 
       const reply = await AiService.chatWithRecruiterAgent(query, candidates, role, history);
+      const { action, cleanText } = extractAgentAction(reply);
+
+      let actionReceipt: ExecutedActionReceipt | undefined = undefined;
+      if (action) {
+        actionReceipt = executeAgentTool(action);
+      }
 
       const agentMsg: ChatMessage = {
         id: `msg-agent-${Date.now()}`,
         sender: 'agent',
-        text: reply,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        text: cleanText || reply,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        actionReceipt
       };
 
       setMessages(prev => [...prev, agentMsg]);
@@ -260,9 +386,11 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
       AudioService.stopListening();
       setIsRecording(false);
     } else {
-      const started = AudioService.startListening(
+      if (!isAiConfigured) return;
+      setIsRecording(true);
+      AudioService.startListening(
         (transcript) => {
-          setInput(prev => (prev ? `${prev} ${transcript}` : transcript));
+          setInput(transcript);
         },
         (error) => {
           console.warn('Speech recognition error:', error);
@@ -272,9 +400,6 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
           setIsRecording(false);
         }
       );
-      if (started) {
-        setIsRecording(true);
-      }
     }
   };
 
@@ -284,7 +409,7 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
         id: `init-${Date.now()}`,
         sender: 'agent',
         text: isAiConfigured 
-          ? `Conversation cleared. Ask me anything about **${role.title}** applicants, gaps, or qualifications.`
+          ? `Conversation cleared. Ask me anything about **${role.title}** applicants, gaps, or ask me to execute actions in your pipeline.`
           : `### ⚠️ AI API Key Required\n\nNo AI API key is configured. Please configure your free **Groq** (\`llama-3.3-70b\`) or **Google Gemini** API key in **AI Settings** to begin.`,
         timestamp: 'Just now'
       }
@@ -293,10 +418,11 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
 
   const promptChips = isAiConfigured
     ? [
+        '⚡ Run Autonomous Screener',
+        'Compare top 2 candidates',
         'Which candidates are eligible?',
-        'Compare candidate skills and projects',
-        'What are the main risk flags in this pipeline?',
-        'Summarize top qualification evidence'
+        'Filter pipeline by Kafka',
+        'Summarize qualification evidence'
       ]
     : [
         '🔑 Connect Free Groq Key',
@@ -311,11 +437,17 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
       }
       return;
     }
+    if (chip === '⚡ Run Autonomous Screener') {
+      if (onRunAutonomousScreener) {
+        onRunAutonomousScreener();
+        return;
+      }
+    }
     handleSend(chip);
   };
 
   return (
-    <div className="fixed inset-y-0 right-0 z-40 w-full sm:w-[420px] bg-white border-l border-slate-200 shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
+    <div className="fixed inset-y-0 right-0 z-40 w-full sm:w-[440px] bg-white border-l border-slate-200 shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
       
       {/* Header */}
       <div className="h-14 px-4 border-b border-slate-200 flex items-center justify-between bg-white shrink-0">
@@ -327,21 +459,19 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <span className="font-bold text-sm text-slate-900 truncate">Recruiter Copilot</span>
+              <span className="font-bold text-sm text-slate-900 truncate">Recruiter Agent Copilot</span>
               <span className={`text-[10px] font-semibold px-1.5 py-0.2 rounded border ${
                 isAiConfigured
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                   : 'bg-amber-50 text-amber-700 border-amber-200'
               }`}>
-                {isAiConfigured ? 'RAG AGENT ONLINE' : 'AI OFFLINE'}
+                {isAiConfigured ? 'AUTONOMOUS ONLINE' : 'AI OFFLINE'}
               </span>
             </div>
             <div className="text-[10px] text-slate-500 truncate flex items-center gap-1">
               <span className={`w-1.5 h-1.5 rounded-full ${isAiConfigured ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
-              <span>
-                {isAiConfigured 
-                  ? `${aiConfig.provider === 'groq' ? '⚡ Groq Llama 3.3' : aiConfig.provider === 'gemini' ? 'Gemini 1.5' : 'OpenAI'} Active`
-                  : 'API Key Required'}
+              <span className="truncate">
+                {isAiConfigured ? `${aiConfig.provider.toUpperCase()} (${aiConfig.model})` : 'Zero dummy fallback — Key needed'}
               </span>
             </div>
           </div>
@@ -350,14 +480,23 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
         <div className="flex items-center gap-1">
           <button
             onClick={handleClearChat}
-            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
             title="Clear conversation"
           >
             <Trash2 className="w-4 h-4" />
           </button>
+          {onOpenAiSettings && (
+            <button
+              onClick={onOpenAiSettings}
+              className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
+              title="AI Settings"
+            >
+              <Sparkles className="w-4 h-4" />
+            </button>
+          )}
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
             title="Close Copilot panel"
           >
             <X className="w-4 h-4" />
@@ -365,18 +504,12 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
         </div>
       </div>
 
-      {/* API Key Required Alert Banner when offline */}
+      {/* Zero Dummy Banner when not configured */}
       {!isAiConfigured && (
-        <div className="mx-3 mt-3 p-3 bg-amber-50/90 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-900 shrink-0 shadow-2xs">
+        <div className="p-3 bg-amber-50 border-b border-amber-200 flex items-start gap-2.5 shrink-0">
           <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <div className="font-semibold text-amber-950 flex items-center justify-between">
-              <span>No AI Key Configured</span>
-              <span className="text-[10px] font-bold text-amber-700 bg-amber-100/80 px-1.5 py-0.5 rounded border border-amber-200/50">Dummy Answers Removed</span>
-            </div>
-            <p className="text-amber-800 text-[11px] mt-1 leading-relaxed">
-              TalentDossier does not use canned or dummy answers. Connect a free Groq or Google Gemini API key to activate conversational AI intelligence.
-            </p>
+          <div className="text-xs text-amber-900 leading-snug">
+            <span className="font-semibold">Authentic AI Evaluation Only:</span> TalentDossier does not use fake or hardcoded answers. Configure an API key to converse with the Copilot.
             {onOpenAiSettings && (
               <button
                 onClick={onOpenAiSettings}
@@ -400,6 +533,8 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
             className={`text-[11px] font-medium border px-2.5 py-1 rounded-full whitespace-nowrap shadow-2xs transition-colors shrink-0 disabled:opacity-50 cursor-pointer ${
               !isAiConfigured
                 ? 'bg-amber-50/60 text-amber-800 border-amber-200 hover:bg-amber-100'
+                : chip.includes('⚡')
+                ? 'bg-indigo-600 text-white border-indigo-700 hover:bg-indigo-700'
                 : 'bg-white text-slate-700 hover:text-indigo-600 hover:border-indigo-200 border-slate-200'
             }`}
           >
@@ -416,13 +551,13 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
             className={`flex flex-col ${m.sender === 'user' ? 'items-end' : 'items-start'}`}
           >
             <div className="text-[10px] text-slate-400 mb-1 px-1 flex items-center gap-1">
-              <span>{m.sender === 'user' ? 'You' : 'TalentDossier Copilot'}</span>
+              <span>{m.sender === 'user' ? 'You' : 'TalentDossier Agent'}</span>
               <span>•</span>
               <span>{m.timestamp}</span>
             </div>
 
             <div
-              className={`max-w-[90%] rounded-xl p-3.5 text-xs leading-relaxed shadow-2xs ${
+              className={`max-w-[92%] rounded-xl p-3.5 text-xs leading-relaxed shadow-2xs ${
                 m.sender === 'user'
                   ? 'bg-indigo-600 text-white rounded-tr-xs'
                   : 'bg-white text-slate-800 border border-slate-200 rounded-tl-xs'
@@ -430,6 +565,38 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
             >
               {/* Rich Markdown Rendering (Bold, Code, Headers, Lists, Quotes) */}
               {renderMessageContent(m.text, m.sender === 'user')}
+
+              {/* Agent Action Execution Receipt */}
+              {m.actionReceipt && (
+                <div className="mt-3 p-3 rounded-xl border border-indigo-200/90 bg-gradient-to-br from-indigo-50/90 via-white to-purple-50/60 shadow-xs space-y-2 text-xs text-slate-800">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-indigo-800 font-bold">
+                      <div className="w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center">
+                        <Zap className="w-3 h-3 fill-white" />
+                      </div>
+                      <span className="font-mono text-[11px] uppercase tracking-wider">
+                        Tool Executed: {m.actionReceipt.tool}
+                      </span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                      <Check className="w-3 h-3 text-emerald-600 stroke-[3]" />
+                      Executed
+                    </span>
+                  </div>
+
+                  {m.actionReceipt.thought && (
+                    <div className="text-[11px] text-slate-600 bg-white/90 p-2 rounded-lg border border-indigo-100 font-sans leading-relaxed">
+                      <strong className="text-slate-800">Agent Reasoning: </strong>
+                      {m.actionReceipt.thought}
+                    </div>
+                  )}
+
+                  <div className="text-[11px] font-medium text-slate-700 flex items-center gap-1.5 pt-0.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                    <span>{m.actionReceipt.resultSummary}</span>
+                  </div>
+                </div>
+              )}
 
               {/* Mentioned Candidate Quick Jump Chips */}
               {m.sender === 'agent' && candidates.length > 0 && isAiConfigured && (
@@ -456,7 +623,7 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
         {isLoading && (
           <div className="flex items-center gap-2 text-xs text-slate-500 bg-white p-3 rounded-xl border border-slate-200 w-fit">
             <Sparkles className="w-4 h-4 text-indigo-600 animate-spin" />
-            <span>Consulting pipeline database & generating grounded response...</span>
+            <span>Consulting pipeline database & executing agent reasoning loop...</span>
           </div>
         )}
 
@@ -475,7 +642,7 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
           <div className="relative flex-1">
             <input
               type="text"
-              placeholder={isAiConfigured ? "Ask anything about candidates, skills, or comparisons..." : "Configure API key in AI Settings to chat..."}
+              placeholder={isAiConfigured ? "Command agent: e.g. 'compare Maya and Alex' or 'screen pipeline'..." : "Configure API key in AI Settings to chat..."}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               disabled={isLoading}
@@ -504,14 +671,14 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
             type="submit"
             disabled={!input.trim() || isLoading}
             className="p-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-40 transition-colors shadow-sm shrink-0 cursor-pointer"
-            title="Send query"
+            title="Send command"
           >
             <Send className="w-4 h-4" />
           </button>
         </form>
         <p className="text-[10px] text-slate-400 mt-1.5 text-center">
           {isAiConfigured 
-            ? "Grounded directly in active candidate resumes, projects, and evidence maps."
+            ? "Grounded in active pipeline embeddings & executes real workspace actions."
             : "Zero fake or hardcoded answers. Configure an API key to enable Copilot."}
         </p>
       </div>

@@ -13,6 +13,7 @@ import { CandidateCompareModal } from './components/CandidateCompareModal';
 import { UploadCandidateModal } from './components/UploadCandidateModal';
 import { AiSettingsModal } from './components/AiSettingsModal';
 import { DatabaseSettingsModal } from './components/DatabaseSettingsModal';
+import { AutonomousScreenerModal } from './components/AutonomousScreenerModal';
 import { AiService } from './services/aiApi';
 import { DatabaseService } from './services/databaseService';
 
@@ -55,6 +56,7 @@ export function App() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isAiSettingsOpen, setIsAiSettingsOpen] = useState(false);
   const [isDatabaseSettingsOpen, setIsDatabaseSettingsOpen] = useState(false);
+  const [isAutonomousScreenerOpen, setIsAutonomousScreenerOpen] = useState(false);
   const [isAiEvaluating, setIsAiEvaluating] = useState(false);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
 
@@ -372,6 +374,7 @@ export function App() {
           onOpenUpload={() => setIsUploadModalOpen(true)}
           onOpenAiSettings={() => setIsAiSettingsOpen(true)}
           onOpenDatabaseSettings={() => setIsDatabaseSettingsOpen(true)}
+          onOpenAutonomousScreener={() => setIsAutonomousScreenerOpen(true)}
           onLoadSingleDemoCase={handleLoadSingleDemoCase}
           onClearBoard={handleClearBoard}
           onSetReviewMode={setReviewMode}
@@ -472,6 +475,21 @@ export function App() {
           }}
         />
       )}
+
+      {/* MODAL 7: Autonomous Screener Agent Modal */}
+      <AutonomousScreenerModal
+        isOpen={isAutonomousScreenerOpen}
+        onClose={() => setIsAutonomousScreenerOpen(false)}
+        candidates={candidates}
+        role={role}
+        onApplyResults={(updated) => {
+          setCandidates(updated);
+          if (updated.length > 0) {
+            setSelectedCandidateId(updated[0].id);
+          }
+          showToast(`Autonomous Screener completed: ${updated.length} candidates triaged`, 'success');
+        }}
+      />
 
 
       {/* Global Floating Toast Notifications (Item 14 & 15: Error & Success Messages) */}
