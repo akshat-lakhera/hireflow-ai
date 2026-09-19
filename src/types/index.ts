@@ -70,6 +70,8 @@ export interface CandidateCaseFile {
   currentRole: string;
   experienceYears: number;
   location: string;
+  email?: string;
+  phone?: string;
   matchScore: number; // 0-100
   fitBadge: CandidateFitBadge;
   matchedSkills: string[]; // key matched

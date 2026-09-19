@@ -10,7 +10,8 @@ import {
   ExternalLink,
   Eye,
   EyeOff,
-  Zap
+  Zap,
+  Lock
 } from 'lucide-react';
 
 interface AiSettingsModalProps {
@@ -252,8 +253,34 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({
               </button>
             </div>
 
-            <p className="text-[11px] text-slate-500 mt-1.5 flex items-center gap-1">
-              <span>Keys are stored safely in local browser storage.</span>
+            {/* Session Only & Security Banner */}
+            <div className="mt-3 p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+              <label className="flex items-start gap-2.5 cursor-pointer text-xs text-slate-700 select-none">
+                <input
+                  type="checkbox"
+                  checked={Boolean(config.sessionOnly)}
+                  onChange={(e) => setConfig(prev => ({ ...prev, sessionOnly: e.target.checked }))}
+                  className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 mt-0.5"
+                />
+                <div>
+                  <span className="font-semibold text-slate-900 flex items-center gap-1.5">
+                    <Lock className="w-3 h-3 text-slate-500" />
+                    Session-Only Mode
+                  </span>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Keeps key in temporary memory and destroys it when this browser tab closes.
+                  </p>
+                </div>
+              </label>
+
+              <div className="flex items-center gap-1.5 text-[10px] text-emerald-700 bg-emerald-50/80 px-2.5 py-1 rounded border border-emerald-100 font-medium">
+                <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                <span>Protected with Base64 + Salt Obfuscation (Never saved as raw plain text)</span>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-slate-500 mt-2 flex items-center gap-1">
+              <span>Need an API key?</span>
               {config.provider === 'groq' ? (
                 <a
                   href="https://console.groq.com/keys"

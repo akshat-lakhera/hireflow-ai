@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CandidateCaseFile, RoleSetup, ReviewMode } from './types';
 import { DEFAULT_ROLE, SINGLE_SAMPLE_CASE, SAMPLE_CASE_FILES } from './data/sampleCases';
+import { CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
 
 // Components
 import { LandingPage } from './components/LandingPage';
@@ -13,9 +14,15 @@ import { UploadCandidateModal } from './components/UploadCandidateModal';
 import { AiSettingsModal } from './components/AiSettingsModal';
 import { AiService } from './services/aiApi';
 
+interface ToastNotification {
+  id: string;
+  type: 'success' | 'error' | 'info';
+  message: string;
+}
+
 export function App() {
-  // Top-level Navigation View State
-  const [view, setView] = useState<'landing' | 'onboarding' | 'dashboard'>('landing');
+  // Top-level Navigation View State (supports 404 fallback)
+  const [view, setView] = useState<'landing' | 'onboarding' | 'dashboard' | 'not_found'>('landing');
 
   // Role Configuration (Fully customizable)
   const [role, setRole] = useState<RoleSetup>(DEFAULT_ROLE);
@@ -38,6 +45,29 @@ export function App() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isAiSettingsOpen, setIsAiSettingsOpen] = useState(false);
   const [isAiEvaluating, setIsAiEvaluating] = useState(false);
+  const [toasts, setToasts] = useState<ToastNotification[]>([]);
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    const id = `toast-${Date.now()}`;
+    setToasts(prev => [...prev, { id, type, message }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 3500);
+  };
+
+  // Item 4: Dynamic Page Title
+  useEffect(() => {
+    const activeCandidate = candidates.find(c => c.id === selectedCandidateId);
+    if (view === 'dashboard' && activeCandidate) {
+      document.title = `${activeCandidate.name} (${activeCandidate.matchScore}%) — HireFlow Dossier`;
+    } else if (view === 'onboarding') {
+      document.title = `Configure ${role.title} Blueprint — HireFlow`;
+    } else if (view === 'not_found') {
+      document.title = `404 - Page Not Found — HireFlow`;
+    } else {
+      document.title = 'HireFlow — AI Candidate Screening & Recruiter Intelligence Workspace';
+    }
+  }, [view, selectedCandidateId, candidates, role.title]);
 
   // Handlers for Onboarding
   const handleStartOnboarding = () => {
@@ -117,6 +147,7 @@ export function App() {
         }, ...prev.teamNotes]
       } : null);
     }
+    showToast('Interview note saved to candidate dossier', 'success');
   };
 
   // Candidate Actions: Update Status
@@ -142,6 +173,7 @@ export function App() {
         return c;
       })
     );
+    showToast(`Status updated to "${status}"`, 'info');
 
     if (detailModalCandidate && detailModalCandidate.id === candidateId) {
       setDetailModalCandidate(prev => prev ? { ...prev, reviewStatus: status } : null);
@@ -273,6 +305,25 @@ export function App() {
         />
       )}
 
+      {/* 4. 404 Fallback View (Item 16: Add 404 page) */}
+      {view === 'not_found' && (
+        <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-50 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-2xl mb-4 shadow-sm">
+            404
+          </div>
+          <h2 className="text-xl font-bold text-slate-900">View Not Found</h2>
+          <p className="text-sm text-slate-500 mt-1.5 max-w-sm mb-6">
+            The workspace screen or candidate file you requested is unavailable or has been archived.
+          </p>
+          <button
+            onClick={() => setView('dashboard')}
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors"
+          >
+            Return to Workspace
+          </button>
+        </div>
+      )}
+
       {/* MODAL 1: Candidate Executive Dossier Modal */}
       {detailModalCandidate && (
         <CaseFileDetailModal
@@ -314,7 +365,10 @@ export function App() {
         <UploadCandidateModal
           role={role}
           onClose={() => setIsUploadModalOpen(false)}
-          onCandidatesUploaded={handleCandidatesUploaded}
+          onCandidatesUploaded={(newC) => {
+            handleCandidatesUploaded(newC);
+            showToast(`Ingested ${newC.length} candidate${newC.length === 1 ? '' : 's'} successfully`, 'success');
+          }}
         />
       )}
 
@@ -322,8 +376,33 @@ export function App() {
       <AiSettingsModal
         isOpen={isAiSettingsOpen}
         onClose={() => setIsAiSettingsOpen(false)}
-        onConfigSaved={() => {}}
+        onConfigSaved={() => showToast('AI Settings updated securely', 'success')}
       />
+
+      {/* Global Floating Toast Notifications (Item 14 & 15: Error & Success Messages) */}
+      <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none max-w-sm">
+        {toasts.map(t => (
+          <div
+            key={t.id}
+            className={`pointer-events-auto px-4 py-3 rounded-xl border shadow-lg text-xs font-medium flex items-center gap-2.5 animate-in slide-in-from-bottom-2 duration-150 ${
+              t.type === 'success'
+                ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
+                : t.type === 'error'
+                ? 'bg-rose-50 text-rose-900 border-rose-200'
+                : 'bg-white text-slate-900 border-slate-200'
+            }`}
+          >
+            {t.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            ) : t.type === 'error' ? (
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            ) : (
+              <Sparkles className="w-4 h-4 text-indigo-600 shrink-0" />
+            )}
+            <span className="flex-1 leading-snug">{t.message}</span>
+          </div>
+        ))}
+      </div>
 
     </div>
   );

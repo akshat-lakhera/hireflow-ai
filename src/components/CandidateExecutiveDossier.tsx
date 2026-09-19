@@ -127,8 +127,28 @@ export const CandidateExecutiveDossier: React.FC<CandidateExecutiveDossierProps>
                 {candidate.currentRole}
               </div>
 
-              {/* Contact and Links */}
+              {/* Contact and Links (Clickable Email & Phone) */}
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-2.5 text-xs text-slate-500">
+                {candidate.email && (
+                  <a
+                    href={`mailto:${candidate.email}`}
+                    className="flex items-center gap-1 text-slate-600 hover:text-indigo-600 hover:underline transition-colors"
+                    title="Send email to candidate"
+                  >
+                    <Mail className="w-3.5 h-3.5 text-slate-400" />
+                    <span>{candidate.email}</span>
+                  </a>
+                )}
+                {candidate.phone && (
+                  <a
+                    href={`tel:${candidate.phone}`}
+                    className="flex items-center gap-1 text-slate-600 hover:text-indigo-600 hover:underline transition-colors"
+                    title="Call candidate phone"
+                  >
+                    <Phone className="w-3.5 h-3.5 text-slate-400" />
+                    <span>{candidate.phone}</span>
+                  </a>
+                )}
                 {candidate.location && candidate.location !== 'Not specified' && (
                   <span className="flex items-center gap-1">
                     <MapPin className="w-3.5 h-3.5 text-slate-400" />
@@ -152,13 +172,13 @@ export const CandidateExecutiveDossier: React.FC<CandidateExecutiveDossierProps>
           </div>
 
           {/* Quick Status Dropdown & Actions */}
-          <div className="flex items-center gap-2 self-start">
+          <div className="flex items-center gap-2 self-start shrink-0">
             {onReevaluateWithAi && (
               <button
                 onClick={onReevaluateWithAi}
                 disabled={isAiEvaluating}
                 className="px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 flex items-center gap-1.5 transition-colors disabled:opacity-50"
-                title="Deep AI analysis with Gemini / OpenAI"
+                title="Deep AI analysis with Gemini / OpenAI / Groq"
               >
                 <Sparkles className={`w-3.5 h-3.5 ${isAiEvaluating ? 'animate-spin' : ''}`} />
                 <span>{isAiEvaluating ? 'Analyzing...' : 'AI Deep Analysis'}</span>
@@ -181,11 +201,11 @@ export const CandidateExecutiveDossier: React.FC<CandidateExecutiveDossierProps>
 
         </div>
 
-        {/* 2. Structured Tabs System */}
-        <div className="flex items-center border-b border-slate-200 mt-6 -mb-6 space-x-6 text-xs font-medium whitespace-nowrap overflow-x-auto">
+        {/* 2. Structured Tabs System - Clean border alignment */}
+        <div className="flex items-center border-b border-slate-200 mt-5 pt-1 space-x-4 sm:space-x-6 text-xs font-medium whitespace-nowrap overflow-x-auto">
           <button
             onClick={() => setActiveTab('overview')}
-            className={`pb-3 border-b-2 transition-colors ${
+            className={`pb-2.5 border-b-2 transition-colors ${
               activeTab === 'overview'
                 ? 'border-indigo-600 text-indigo-600 font-semibold'
                 : 'border-transparent text-slate-500 hover:text-slate-800'

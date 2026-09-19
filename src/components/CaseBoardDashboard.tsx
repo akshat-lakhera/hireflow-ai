@@ -14,14 +14,15 @@ import {
   Briefcase,
   CheckCircle2,
   FileSpreadsheet,
-  GripVertical,
   PanelLeft,
   PanelRight,
   ChevronLeft,
   ChevronRight,
-  MessageSquare
+  MessageSquare,
+  Bot
 } from 'lucide-react';
 import { AiService } from '../services/aiApi';
+import { RecruiterAgentCopilot } from './RecruiterAgentCopilot';
 
 interface CaseBoardDashboardProps {
   role: RoleSetup;
@@ -88,11 +89,14 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
     }
   });
 
-  // Collapsible States (for responsive split screens / half windows)
   const [isLeftCollapsed, setIsLeftCollapsed] = useState<boolean>(false);
   const [isRightCollapsed, setIsRightCollapsed] = useState<boolean>(() => {
     return typeof window !== 'undefined' && window.innerWidth < 1050;
   });
+
+  // Copilot and Mobile Tab Navigation
+  const [isCopilotOpen, setIsCopilotOpen] = useState(false);
+  const [mobileTab, setMobileTab] = useState<'pipeline' | 'dossier' | 'actions'>('dossier');
 
   const [isDraggingLeft, setIsDraggingLeft] = useState(false);
   const [isDraggingRight, setIsDraggingRight] = useState(false);
@@ -272,6 +276,16 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
               <span className="hidden sm:inline">Compare</span> ({selectedForCompare.length})
             </button>
           )}
+
+          {/* Recruiter RAG Copilot Agent Button */}
+          <button
+            onClick={() => setIsCopilotOpen(true)}
+            className="px-2.5 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded-lg flex items-center gap-1.5 transition-colors shadow-2xs"
+            title="Open AI Recruiter Copilot (Natural Language RAG Agent)"
+          >
+            <Bot className="w-3.5 h-3.5 text-indigo-600" />
+            <span className="hidden md:inline">AI Copilot</span>
+          </button>
 
           <button
             onClick={onOpenUpload}
@@ -517,6 +531,59 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
         )}
 
       </div>
+
+      {/* Mobile Bottom Navigation Bar (Item 8: Mobile menu / navigation) */}
+      <div className="md:hidden h-14 bg-white border-t border-slate-200 flex items-center justify-around px-2 z-30 shrink-0 shadow-lg">
+        <button
+          onClick={() => setMobileTab('pipeline')}
+          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-lg text-[10px] font-semibold transition-colors ${
+            mobileTab === 'pipeline' ? 'text-indigo-600 bg-indigo-50' : 'text-slate-500'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span>Pipeline ({filteredCandidates.length})</span>
+        </button>
+
+        <button
+          onClick={() => setMobileTab('dossier')}
+          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-lg text-[10px] font-semibold transition-colors ${
+            mobileTab === 'dossier' ? 'text-indigo-600 bg-indigo-50' : 'text-slate-500'
+          }`}
+        >
+          <FileSpreadsheet className="w-4 h-4" />
+          <span>Dossier</span>
+        </button>
+
+        <button
+          onClick={() => setMobileTab('actions')}
+          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-lg text-[10px] font-semibold transition-colors ${
+            mobileTab === 'actions' ? 'text-indigo-600 bg-indigo-50' : 'text-slate-500'
+          }`}
+        >
+          <Briefcase className="w-4 h-4" />
+          <span>Actions</span>
+        </button>
+
+        <button
+          onClick={() => setIsCopilotOpen(true)}
+          className="flex flex-col items-center gap-1 py-1 px-3 rounded-lg text-[10px] font-semibold text-indigo-600 hover:bg-indigo-50 transition-colors"
+        >
+          <Bot className="w-4 h-4" />
+          <span>AI Copilot</span>
+        </button>
+      </div>
+
+      {/* In-App RAG Recruiter Agent Copilot Drawer */}
+      <RecruiterAgentCopilot
+        isOpen={isCopilotOpen}
+        onClose={() => setIsCopilotOpen(false)}
+        candidates={candidates}
+        role={role}
+        onSelectCandidate={(c) => {
+          onSelectCandidate(c);
+          setMobileTab('dossier');
+        }}
+      />
 
     </div>
   );

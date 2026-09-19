@@ -271,6 +271,8 @@ export class CaseEvaluator {
       currentRole,
       experienceYears: data.experiences.length > 0 ? data.experiences.length * 2 : 2,
       location: data.location || 'Remote',
+      email: data.email || undefined,
+      phone: data.phone || undefined,
       matchScore,
       fitBadge,
       matchedSkills: matchedSkills.slice(0, 3),
