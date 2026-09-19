@@ -31,10 +31,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       <header className="w-full border-b border-slate-200 bg-white sticky top-0 z-30 px-6 sm:px-12 h-16 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-sm">
-            HF
+            TD
           </div>
           <div className="flex items-center gap-2">
-            <span className="font-bold text-base tracking-tight text-slate-900">HireFlow</span>
+            <span className="font-bold text-base tracking-tight text-slate-900">TalentDossier</span>
             <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 uppercase tracking-wider">
               Recruiter Workspace
             </span>
@@ -133,7 +133,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
       {/* Footer */}
       <footer className="border-t border-slate-200 bg-white py-6 px-12 text-center text-xs text-slate-500">
-        HireFlow Recruiter Intelligence • Privacy-First Candidate Screening Platform
+        TalentDossier Recruiter Intelligence • Privacy-First Candidate Screening Platform
       </footer>
 
     </div>

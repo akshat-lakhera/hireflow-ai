@@ -1,5 +1,5 @@
 -- =========================================================
--- HireFlow PostgreSQL + pgvector Schema Migration
+-- TalentDossier PostgreSQL + pgvector Schema Migration
 -- Compatible with Supabase & Self-Hosted PostgreSQL 15+
 -- =========================================================
 

@@ -386,7 +386,7 @@ JSON Structure required:
 
     // Enforce API key requirement: Zero dummy or hardcoded responses
     if (!this.isConfigured()) {
-      return `### ⚠️ AI API Key Required\n\nNo AI API key is configured. HireFlow Copilot requires an active LLM provider (**Groq**, **Google Gemini**, or **OpenAI**) to converse and analyze candidate dossiers.\n\nAll hardcoded and dummy responses have been permanently removed. Please configure your free **Groq** (\`llama-3.3-70b\`) or **Google Gemini** API key in **AI Settings** (top header) to activate the Copilot.`;
+      return `### ⚠️ AI API Key Required\n\nNo AI API key is configured. TalentDossier Copilot requires an active LLM provider (**Groq**, **Google Gemini**, or **OpenAI**) to converse and analyze candidate dossiers.\n\nAll hardcoded and dummy responses have been permanently removed. Please configure your free **Groq** (\`llama-3.3-70b\`) or **Google Gemini** API key in **AI Settings** (top header) to activate the Copilot.`;
     }
 
     try {
@@ -408,7 +408,7 @@ Verified Evidence: ${evidence || 'None'}
 Risk Flags: ${risks || 'None'}`;
       }).join('\n\n');
 
-      const systemPrompt = `You are HireFlow Copilot — an expert AI Recruiting Intelligence Agent embedded inside the recruiter's workspace.
+      const systemPrompt = `You are TalentDossier Copilot — an expert AI Recruiting Intelligence Agent embedded inside the recruiter's workspace.
 You have real-time grounded access to the candidate pipeline database and the active role requirements.
 
 Current Role Blueprint:

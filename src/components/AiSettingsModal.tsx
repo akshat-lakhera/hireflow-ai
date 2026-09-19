@@ -333,7 +333,7 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({
           {/* Fallback info */}
           {!config.apiKey && (
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-600">
-              <span className="font-semibold text-slate-900">⚡ Local Deterministic Engine Active:</span> Even without an API key, HireFlow parses real PDFs with coordinate-sorted line reconstruction and runs full criteria mapping locally.
+              <span className="font-semibold text-slate-900">⚡ Local Deterministic Engine Active:</span> Even without an API key, TalentDossier parses real PDFs with coordinate-sorted line reconstruction and runs full criteria mapping locally.
             </div>
           )}
         </div>

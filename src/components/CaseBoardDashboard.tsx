@@ -227,10 +227,10 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
             className="flex items-center gap-2 cursor-pointer hover:opacity-85 transition-opacity"
           >
             <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-sm">
-              HF
+              TD
             </div>
             <div className="hidden sm:block">
-              <span className="font-bold text-sm tracking-tight text-slate-900">HireFlow</span>
+              <span className="font-bold text-sm tracking-tight text-slate-900">TalentDossier</span>
               <span className="ml-1.5 text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
                 WORKSPACE
               </span>

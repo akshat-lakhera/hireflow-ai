@@ -455,7 +455,7 @@ export const DatabaseSettingsModal: React.FC<DatabaseSettingsModalProps> = ({
               </div>
 
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900">
-                <span className="font-semibold">Note on Supabase pgvector:</span> Supabase does not automatically calculate vector embeddings upon INSERT. HireFlow's client engine handles calculating the 384-dimensional normalized vector array and delivers it directly in the cloud sync payload.
+                <span className="font-semibold">Note on Supabase pgvector:</span> Supabase does not automatically calculate vector embeddings upon INSERT. TalentDossier's client engine handles calculating the 384-dimensional normalized vector array and delivers it directly in the cloud sync payload.
               </div>
             </div>
           )}

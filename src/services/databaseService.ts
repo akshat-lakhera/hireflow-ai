@@ -552,7 +552,7 @@ export class DatabaseService {
    */
   public static getPostgresSchemaSQL(): string {
     return `-- =========================================================
--- HireFlow PostgreSQL + pgvector Schema Migration
+-- TalentDossier PostgreSQL + pgvector Schema Migration
 -- Run this in your Supabase SQL Editor (Dashboard > SQL Editor)
 -- =========================================================
 

@@ -78,13 +78,13 @@ export function App() {
   useEffect(() => {
     const activeCandidate = candidates.find(c => c.id === selectedCandidateId);
     if (view === 'dashboard' && activeCandidate) {
-      document.title = `${activeCandidate.name} (${activeCandidate.matchScore}%) — HireFlow Dossier`;
+      document.title = `${activeCandidate.name} (${activeCandidate.matchScore}%) — TalentDossier`;
     } else if (view === 'onboarding') {
-      document.title = `Configure ${role.title} Blueprint — HireFlow`;
+      document.title = `Configure ${role.title} Blueprint — TalentDossier`;
     } else if (view === 'not_found') {
-      document.title = `404 - Page Not Found — HireFlow`;
+      document.title = `404 - Page Not Found — TalentDossier`;
     } else {
-      document.title = 'HireFlow — AI Candidate Screening & Recruiter Intelligence Workspace';
+      document.title = 'TalentDossier — AI Candidate Screening & Recruiter Intelligence Workspace';
     }
   }, [view, selectedCandidateId, candidates, role.title]);
 

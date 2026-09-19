@@ -33,6 +33,114 @@ interface RecruiterAgentCopilotProps {
   onOpenAiSettings?: () => void;
 }
 
+/**
+ * Parses inline markdown: **bold**, `code`, and *italic*
+ */
+function parseInlineMarkdown(text: string, isUserMessage = false): React.ReactNode {
+  if (!text) return null;
+  const tokens = text.split(/(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g);
+
+  return tokens.map((token, idx) => {
+    if (token.startsWith('**') && token.endsWith('**') && token.length >= 4) {
+      return (
+        <strong key={idx} className={`font-semibold ${isUserMessage ? 'text-white font-bold' : 'text-slate-900 font-bold'}`}>
+          {token.slice(2, -2)}
+        </strong>
+      );
+    }
+    if (token.startsWith('`') && token.endsWith('`') && token.length >= 2) {
+      return (
+        <code
+          key={idx}
+          className={`px-1.5 py-0.5 rounded font-mono text-[11px] ${
+            isUserMessage
+              ? 'bg-indigo-700 text-indigo-100'
+              : 'bg-slate-100 text-indigo-700 border border-slate-200/80 font-medium'
+          }`}
+        >
+          {token.slice(1, -1)}
+        </code>
+      );
+    }
+    if (token.startsWith('*') && token.endsWith('*') && token.length >= 2 && !token.startsWith('**')) {
+      return (
+        <em key={idx} className="italic">
+          {token.slice(1, -1)}
+        </em>
+      );
+    }
+    return token;
+  });
+}
+
+/**
+ * Renders full message content with block and inline markdown formatting
+ */
+function renderMessageContent(content: string, isUserMessage = false): React.ReactNode {
+  const lines = content.split('\n');
+
+  return (
+    <div className="space-y-1.5 whitespace-pre-wrap break-words">
+      {lines.map((line, lIdx) => {
+        const trimmed = line.trim();
+        if (!trimmed) {
+          return <div key={lIdx} className="h-1" />;
+        }
+        if (line.startsWith('### ') || line.startsWith('## ')) {
+          const headingText = line.replace(/^#{2,4}\s+/, '');
+          return (
+            <h4 key={lIdx} className={`font-bold text-sm mt-2 mb-1 flex items-center gap-1.5 ${
+              isUserMessage ? 'text-white' : 'text-slate-900'
+            }`}>
+              {parseInlineMarkdown(headingText, isUserMessage)}
+            </h4>
+          );
+        }
+        if (line.startsWith('> ')) {
+          const quoteText = line.replace(/^>\s+/, '');
+          return (
+            <div
+              key={lIdx}
+              className={`border-l-2 pl-2.5 py-1 rounded-r text-[11px] my-1 ${
+                isUserMessage
+                  ? 'border-indigo-300 bg-indigo-700/50 text-indigo-100'
+                  : 'border-indigo-400 bg-indigo-50/60 text-slate-700'
+              }`}
+            >
+              {parseInlineMarkdown(quoteText, isUserMessage)}
+            </div>
+          );
+        }
+        if (line.startsWith('• ') || line.startsWith('- ') || line.startsWith('* ')) {
+          const bulletText = line.replace(/^[-•*]\s+/, '');
+          return (
+            <div key={lIdx} className="flex items-start gap-1.5 pl-1">
+              <span className={`font-bold shrink-0 ${isUserMessage ? 'text-indigo-200' : 'text-indigo-500'}`}>•</span>
+              <span className="flex-1">{parseInlineMarkdown(bulletText, isUserMessage)}</span>
+            </div>
+          );
+        }
+        const numberMatch = line.match(/^(\d+)\.\s+(.*)/);
+        if (numberMatch) {
+          return (
+            <div key={lIdx} className="flex items-start gap-1.5 pl-1">
+              <span className={`font-semibold shrink-0 ${isUserMessage ? 'text-indigo-200' : 'text-indigo-600'}`}>
+                {numberMatch[1]}.
+              </span>
+              <span className="flex-1">{parseInlineMarkdown(numberMatch[2], isUserMessage)}</span>
+            </div>
+          );
+        }
+        return (
+          <p key={lIdx} className="leading-relaxed">
+            {parseInlineMarkdown(line, isUserMessage)}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
 export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
   isOpen,
   onClose,
@@ -66,8 +174,8 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
         id: 'init-1',
         sender: 'agent',
         text: configured
-          ? `Hello! I am your **HireFlow Copilot** powered by **${cfg.provider.toUpperCase()} (${cfg.model})**. I have real-time grounded context on the **${role.title}** role and all **${candidates.length} candidate${candidates.length === 1 ? '' : 's'}** in the pipeline. Ask me anything about candidate qualifications, verification gaps, or eligibility.`
-          : `### ⚠️ AI API Key Required\n\nWelcome to **HireFlow Copilot**.\n\nCurrently, **no AI API key is configured**. HireFlow operates with authentic LLM evaluation and does **not** provide fake, mock, or hardcoded dummy answers.\n\nTo ask questions, evaluate qualifications, compare applicants, or generate interview questions, please add your free **Groq** (\`llama-3.3-70b\`) or **Google Gemini** API key in **AI Settings**.`,
+          ? `Hello! I am your **TalentDossier Copilot** powered by **${cfg.provider.toUpperCase()} (${cfg.model})**. I have real-time grounded context on the **${role.title}** role and all **${candidates.length} candidate${candidates.length === 1 ? '' : 's'}** in the pipeline. Ask me anything about candidate qualifications, verification gaps, or eligibility.`
+          : `### ⚠️ AI API Key Required\n\nWelcome to **TalentDossier Copilot**.\n\nCurrently, **no AI API key is configured**. TalentDossier operates with authentic LLM evaluation and does **not** provide fake, mock, or hardcoded dummy answers.\n\nTo ask questions, evaluate qualifications, compare applicants, or generate interview questions, please add your free **Groq** (\`llama-3.3-70b\`) or **Google Gemini** API key in **AI Settings**.`,
         timestamp: 'Just now'
       }
     ];
@@ -107,7 +215,7 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
       const warnMsg: ChatMessage = {
         id: `msg-agent-${Date.now()}`,
         sender: 'agent',
-        text: `### ⚠️ AI API Key Required\n\nNo AI API key is configured. HireFlow operates with authentic LLM intelligence and does **not** provide dummy or hardcoded answers.\n\nPlease open **AI Settings** (top header) and enter a free **Groq** (\`llama-3.3-70b\`) or **Google Gemini** API key to chat with the copilot.`,
+        text: `### ⚠️ AI API Key Required\n\nNo AI API key is configured. TalentDossier operates with authentic LLM intelligence and does **not** provide dummy or hardcoded answers.\n\nPlease open **AI Settings** (top header) and enter a free **Groq** (\`llama-3.3-70b\`) or **Google Gemini** API key to chat with the copilot.`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       setMessages(prev => [...prev, userMsg, warnMsg]);
@@ -268,7 +376,7 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
               <span className="text-[10px] font-bold text-amber-700 bg-amber-100/80 px-1.5 py-0.5 rounded border border-amber-200/50">Dummy Answers Removed</span>
             </div>
             <p className="text-amber-800 text-[11px] mt-1 leading-relaxed">
-              HireFlow does not use canned or dummy answers. Connect a free Groq or Google Gemini API key to activate conversational AI intelligence.
+              TalentDossier does not use canned or dummy answers. Connect a free Groq or Google Gemini API key to activate conversational AI intelligence.
             </p>
             {onOpenAiSettings && (
               <button
@@ -309,7 +417,7 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
             className={`flex flex-col ${m.sender === 'user' ? 'items-end' : 'items-start'}`}
           >
             <div className="text-[10px] text-slate-400 mb-1 px-1 flex items-center gap-1">
-              <span>{m.sender === 'user' ? 'You' : 'HireFlow Copilot'}</span>
+              <span>{m.sender === 'user' ? 'You' : 'TalentDossier Copilot'}</span>
               <span>•</span>
               <span>{m.timestamp}</span>
             </div>
@@ -321,23 +429,8 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
                   : 'bg-white text-slate-800 border border-slate-200 rounded-tl-xs'
               }`}
             >
-              {/* Message text with basic markdown formatting */}
-              <div className="space-y-1.5 whitespace-pre-wrap break-words">
-                {m.text.split('\n').map((line, lIdx) => {
-                  if (line.startsWith('### ')) {
-                    return <h4 key={lIdx} className="font-bold text-sm text-slate-900 mt-2 mb-1">{line.replace('### ', '')}</h4>;
-                  }
-                  if (line.startsWith('• ') || line.startsWith('- ')) {
-                    return (
-                      <div key={lIdx} className="flex items-start gap-1.5 pl-1">
-                        <span className="text-indigo-500 font-bold shrink-0">•</span>
-                        <span>{line.slice(2)}</span>
-                      </div>
-                    );
-                  }
-                  return <p key={lIdx}>{line}</p>;
-                })}
-              </div>
+              {/* Rich Markdown Rendering (Bold, Code, Headers, Lists, Quotes) */}
+              {renderMessageContent(m.text, m.sender === 'user')}
 
               {/* Mentioned Candidate Quick Jump Chips */}
               {m.sender === 'agent' && candidates.length > 0 && isAiConfigured && (
