@@ -104,6 +104,7 @@ export interface CandidateCaseFile {
   // 384-dimensional vector embedding for local & Supabase pgvector search
   embedding?: number[];
   rawText?: string;
+  pdfDataUrl?: string;
   createdAt?: string;
   updatedAt?: string;
 }

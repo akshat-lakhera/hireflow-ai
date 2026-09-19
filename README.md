@@ -4,8 +4,31 @@
 
 [![CI Quality Gate](https://github.com/akshat-lakhera/hireflow-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/akshat-lakhera/hireflow-ai/actions/workflows/ci.yml)
 [![Deploy to GitHub Pages](https://github.com/akshat-lakhera/hireflow-ai/actions/workflows/deploy.yml/badge.svg)](https://github.com/akshat-lakhera/hireflow-ai/actions/workflows/deploy.yml)
+[![GitHub Release](https://img.shields.io/github/v/release/akshat-lakhera/hireflow-ai?color=6366f1&label=Release&logo=github)](https://github.com/akshat-lakhera/hireflow-ai/releases/latest)
+[![Direct Download](https://img.shields.io/badge/Download-Standalone%20Release%20ZIP-emerald?logo=github)](https://github.com/akshat-lakhera/hireflow-ai/releases/latest/download/talentdossier-v1.0.0-standalone.zip)
 
 TalentDossier is an **Autonomous Agentic Recruiting Platform** engineered to transform raw applicant resumes into verifiable, evidence-grounded hiring decisions. Operating on a **ReAct (Reasoning + Acting) Agentic Framework**, TalentDossier gives AI real agency over the recruiter's workspace: autonomously evaluating applicant portfolios against custom role blueprints, executing UI tools (comparison matrix, stage updates, interview kits), and committing auditable decisions directly into an IndexedDB / Supabase pgvector store.
+
+---
+
+## 📦 Instant Standalone Download (No Setup Required)
+
+Want to run or inspect TalentDossier immediately without installing developer tools or configuring node builds?
+
+- 📥 **Direct Download (.zip)**: [**talentdossier-v1.0.0-standalone.zip**](https://github.com/akshat-lakhera/hireflow-ai/releases/latest/download/talentdossier-v1.0.0-standalone.zip)
+- 🏷️ **GitHub Releases Hub**: [**https://github.com/akshat-lakhera/hireflow-ai/releases**](https://github.com/akshat-lakhera/hireflow-ai/releases)
+
+### 30-Second Launch:
+1. **Download & unzip** `talentdossier-v1.0.0-standalone.zip`.
+2. **Serve locally** via any static web server:
+   ```bash
+   # Option A: With npx (Node.js)
+   npx serve .
+   
+   # Option B: With Python
+   python -m http.server 8080
+   ```
+3. Open `http://localhost:3000` or `http://localhost:8080` in your browser. All vector embeddings, resume parsing, and local agent reasoning run 100% in-browser with zero telemetry leakage!
 
 ---
 
@@ -71,6 +94,11 @@ The Copilot is equipped with active agency through executable workspace tools:
 - **Local IndexedDB Vector Store**: Zero setup required. Every candidate is automatically embedded into a 384-dimensional dense vector space for sub-millisecond semantic search.
 - **Supabase Cloud Sync (pgvector)**: Enterprise database support with automated background sync, vector similarity search (`match_candidates` RPC), and schema migration script (`public/schema.sql`).
 - **Zero Data Loss Guarantee**: Automatic migration ensures candidate records and role configurations remain intact across updates.
+
+### 5. Verbatim Resume Inspection & PDF Preview
+- **Full Original Text Stream**: Line-numbered text viewer with real-time keyword highlighting, word count, and one-click copy to clipboard.
+- **Embedded PDF Rendering**: Dedicated `<iframe />` preview for uploaded PDF resumes alongside parsed qualifications.
+- **Quick-Access Inspection Points**: Direct access via candidate pipeline cards, executive dossier action bar, and the dedicated `📄 Original Resume` dossier tab.
 
 ---
 

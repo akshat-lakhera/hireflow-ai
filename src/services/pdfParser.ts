@@ -49,6 +49,7 @@ export interface StructuredResumeData {
   experiences: ParsedExperience[];
   education: ParsedEducation[];
   embedding?: number[]; // 384-dimensional vector embedding
+  pdfDataUrl?: string;
 }
 
 /**
@@ -249,6 +250,20 @@ export async function extractTextFromPDF(
     status: 'completed',
     timestamp: Date.now()
   });
+
+  try {
+    const dataUrl = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve((reader.result as string) || '');
+      reader.onerror = () => resolve('');
+      reader.readAsDataURL(file);
+    });
+    if (dataUrl) {
+      parsed.pdfDataUrl = dataUrl;
+    }
+  } catch (e) {
+    console.warn('PDF data URL reader notice:', e);
+  }
 
   return parsed;
 }

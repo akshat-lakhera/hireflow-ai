@@ -7,7 +7,8 @@ import {
   Briefcase, 
   ArrowUpRight,
   Sparkles,
-  Scale
+  Scale,
+  FileText
 } from 'lucide-react';
 
 interface CandidateCaseFileCardProps {
@@ -18,6 +19,7 @@ interface CandidateCaseFileCardProps {
   onSelect: () => void;
   onOpenDetail: () => void;
   onOpenInterviewKit: () => void;
+  onOpenResume?: () => void;
   onToggleCompare?: () => void;
 }
 
@@ -27,6 +29,7 @@ export const CandidateCaseFileCard: React.FC<CandidateCaseFileCardProps> = ({
   isCompareSelected = false,
   onSelect,
   onOpenDetail,
+  onOpenResume,
   onToggleCompare
 }) => {
   const getBadgeClasses = (badge: CandidateCaseFile['fitBadge']) => {
@@ -150,16 +153,32 @@ export const CandidateCaseFileCard: React.FC<CandidateCaseFileCardProps> = ({
           )}
         </div>
 
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onOpenDetail();
-          }}
-          className="text-xs font-medium text-slate-500 hover:text-indigo-600 flex items-center gap-0.5 transition-colors shrink-0"
-        >
-          <span>View Dossier</span>
-          <ArrowUpRight className="w-3.5 h-3.5" />
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          {onOpenResume && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenResume();
+              }}
+              className="text-xs font-medium text-slate-500 hover:text-indigo-600 flex items-center gap-1 transition-colors cursor-pointer"
+              title={`Inspect ${candidate.name}'s original resume text/PDF`}
+            >
+              <FileText className="w-3.5 h-3.5 text-slate-400" />
+              <span>Resume</span>
+            </button>
+          )}
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenDetail();
+            }}
+            className="text-xs font-medium text-slate-500 hover:text-indigo-600 flex items-center gap-0.5 transition-colors shrink-0 cursor-pointer"
+          >
+            <span>View Dossier</span>
+            <ArrowUpRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
     </div>
   );

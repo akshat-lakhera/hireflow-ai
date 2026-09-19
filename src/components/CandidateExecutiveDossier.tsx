@@ -17,7 +17,11 @@ import {
   Clock, 
   HelpCircle,
   Volume2,
-  Send
+  Send,
+  Download,
+  Search,
+  Layers,
+  Code
 } from 'lucide-react';
 import { AudioService } from '../services/audioService';
 
@@ -40,7 +44,9 @@ export const CandidateExecutiveDossier: React.FC<CandidateExecutiveDossierProps>
   onReevaluateWithAi,
   isAiEvaluating
 }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'evidence' | 'probes' | 'notes'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'evidence' | 'probes' | 'notes' | 'resume'>('overview');
+  const [resumeViewMode, setResumeViewMode] = useState<'pdf' | 'text'>(candidate.pdfDataUrl ? 'pdf' : 'text');
+  const [resumeSearchQuery, setResumeSearchQuery] = useState('');
   const [copiedText, setCopiedText] = useState<string | null>(null);
   const [activeCitationSnippet, setActiveCitationSnippet] = useState<EvidenceItem | null>(null);
   const [noteInput, setNoteInput] = useState('');
@@ -173,6 +179,20 @@ export const CandidateExecutiveDossier: React.FC<CandidateExecutiveDossierProps>
 
           {/* Quick Status Dropdown & Actions */}
           <div className="flex items-center gap-2 self-start shrink-0">
+            {/* View Original Resume Button */}
+            <button
+              onClick={() => setActiveTab('resume')}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg border flex items-center gap-1.5 transition-colors cursor-pointer ${
+                activeTab === 'resume'
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
+                  : 'bg-white text-slate-700 hover:text-indigo-600 hover:bg-slate-50 border-slate-200 shadow-2xs'
+              }`}
+              title="Inspect original resume text or uploaded document"
+            >
+              <FileText className={`w-3.5 h-3.5 ${activeTab === 'resume' ? 'text-white' : 'text-indigo-600'}`} />
+              <span>View Resume</span>
+            </button>
+
             {onReevaluateWithAi && (
               <button
                 onClick={onReevaluateWithAi}
@@ -205,7 +225,7 @@ export const CandidateExecutiveDossier: React.FC<CandidateExecutiveDossierProps>
         <div className="flex items-center border-b border-slate-200 mt-5 pt-1 space-x-4 sm:space-x-6 text-xs font-medium whitespace-nowrap overflow-x-auto">
           <button
             onClick={() => setActiveTab('overview')}
-            className={`pb-2.5 border-b-2 transition-colors ${
+            className={`pb-2.5 border-b-2 transition-colors cursor-pointer ${
               activeTab === 'overview'
                 ? 'border-indigo-600 text-indigo-600 font-semibold'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -215,7 +235,7 @@ export const CandidateExecutiveDossier: React.FC<CandidateExecutiveDossierProps>
           </button>
           <button
             onClick={() => setActiveTab('evidence')}
-            className={`pb-3 border-b-2 transition-colors flex items-center gap-1.5 ${
+            className={`pb-3 border-b-2 transition-colors flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'evidence'
                 ? 'border-indigo-600 text-indigo-600 font-semibold'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -228,7 +248,7 @@ export const CandidateExecutiveDossier: React.FC<CandidateExecutiveDossierProps>
           </button>
           <button
             onClick={() => setActiveTab('probes')}
-            className={`pb-3 border-b-2 transition-colors flex items-center gap-1.5 ${
+            className={`pb-3 border-b-2 transition-colors flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'probes'
                 ? 'border-indigo-600 text-indigo-600 font-semibold'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -241,7 +261,7 @@ export const CandidateExecutiveDossier: React.FC<CandidateExecutiveDossierProps>
           </button>
           <button
             onClick={() => setActiveTab('notes')}
-            className={`pb-3 border-b-2 transition-colors flex items-center gap-1.5 ${
+            className={`pb-3 border-b-2 transition-colors flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'notes'
                 ? 'border-indigo-600 text-indigo-600 font-semibold'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -251,6 +271,22 @@ export const CandidateExecutiveDossier: React.FC<CandidateExecutiveDossierProps>
             <span className="bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded-full text-[10px]">
               {candidate.teamNotes.length}
             </span>
+          </button>
+          <button
+            onClick={() => setActiveTab('resume')}
+            className={`pb-3 border-b-2 transition-colors flex items-center gap-1.5 cursor-pointer ${
+              activeTab === 'resume'
+                ? 'border-indigo-600 text-indigo-600 font-semibold'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Original Resume</span>
+            {candidate.pdfDataUrl && (
+              <span className="bg-indigo-50 text-indigo-700 border border-indigo-100 px-1.5 py-0.2 rounded text-[10px] font-mono">
+                PDF
+              </span>
+            )}
           </button>
         </div>
 
@@ -598,6 +634,155 @@ export const CandidateExecutiveDossier: React.FC<CandidateExecutiveDossierProps>
                       <span>{at.timestamp}</span>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 5: ORIGINAL RESUME DOCUMENT */}
+        {activeTab === 'resume' && (
+          <div className="space-y-4">
+            {/* Toolbar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-200/80 flex items-center justify-center text-indigo-700 font-bold">
+                  <FileText className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900">Original Resume Document</h4>
+                  <p className="text-[11px] text-slate-500">
+                    {candidate.pdfDataUrl ? 'PDF Document Ingest' : 'Direct Text Extraction'} • {(candidate.rawText || candidate.resumeSummary).split(/\s+/).filter(Boolean).length} words
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {candidate.pdfDataUrl && (
+                  <div className="bg-white p-0.5 rounded-lg border border-slate-200 flex items-center gap-1 text-xs">
+                    <button
+                      onClick={() => setResumeViewMode('pdf')}
+                      className={`px-3 py-1 font-semibold rounded-md transition-colors cursor-pointer ${
+                        resumeViewMode === 'pdf' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      PDF Preview
+                    </button>
+                    <button
+                      onClick={() => setResumeViewMode('text')}
+                      className={`px-3 py-1 font-semibold rounded-md transition-colors cursor-pointer ${
+                        resumeViewMode === 'text' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Parsed Text
+                    </button>
+                  </div>
+                )}
+
+                <button
+                  onClick={() => handleCopy(candidate.rawText || candidate.resumeSummary, 'resume-full')}
+                  className="px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+                  title="Copy full raw resume text"
+                >
+                  {copiedText === 'resume-full' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-slate-500" />}
+                  <span>{copiedText === 'resume-full' ? 'Copied' : 'Copy Text'}</span>
+                </button>
+
+                {candidate.pdfDataUrl && (
+                  <button
+                    onClick={() => {
+                      const a = document.createElement('a');
+                      a.href = candidate.pdfDataUrl!;
+                      a.download = `${candidate.name.replace(/\s+/g, '_')}_Resume.pdf`;
+                      a.click();
+                    }}
+                    className="px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+                    title="Download original PDF document"
+                  >
+                    <Download className="w-3.5 h-3.5 text-slate-500" />
+                    <span className="hidden sm:inline">Download</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Resume Body */}
+            {resumeViewMode === 'pdf' && candidate.pdfDataUrl ? (
+              <div className="w-full h-[640px] rounded-xl border border-slate-200 overflow-hidden shadow-xs bg-slate-900">
+                <iframe
+                  src={candidate.pdfDataUrl}
+                  title={`${candidate.name} Resume PDF`}
+                  className="w-full h-full border-0"
+                />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Search / Filter in Resume Text */}
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    placeholder="Search keywords within resume text (e.g. Kafka, Rust, Lead, Kubernetes)..."
+                    value={resumeSearchQuery}
+                    onChange={(e) => setResumeSearchQuery(e.target.value)}
+                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-3 py-2 text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                  {resumeSearchQuery && (
+                    <button
+                      onClick={() => setResumeSearchQuery('')}
+                      className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+
+                {/* Verbatim Document Paper Card */}
+                <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-1">
+                  <div className="flex items-center justify-between pb-2 mb-3 border-b border-slate-100 text-xs font-semibold text-slate-700">
+                    <span className="flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Verbatim Extracted Resume Stream</span>
+                    </span>
+                    <span className="text-[11px] font-mono text-slate-400">
+                      UTF-8 Decoded • Authentic Pipeline Data
+                    </span>
+                  </div>
+
+                  {(candidate.rawText || candidate.resumeSummary) ? (
+                    <div className="space-y-1 font-mono text-xs">
+                      {(candidate.rawText || candidate.resumeSummary)
+                        .split('\n')
+                        .filter(l => l.trim().length > 0)
+                        .map((line, idx) => {
+                          if (!resumeSearchQuery.trim()) {
+                            return (
+                              <div key={idx} className="flex items-start gap-3 py-0.5 hover:bg-slate-50 px-2 rounded">
+                                <span className="select-none text-slate-300 w-8 text-right shrink-0">{idx + 1}</span>
+                                <span className="text-slate-800 leading-relaxed whitespace-pre-wrap">{line}</span>
+                              </div>
+                            );
+                          }
+                          const regex = new RegExp(`(${resumeSearchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+                          const parts = line.split(regex);
+                          const hasMatch = regex.test(line);
+                          return (
+                            <div key={idx} className={`flex items-start gap-3 py-0.5 px-2 rounded ${hasMatch ? 'bg-amber-50 text-amber-950 font-medium' : 'hover:bg-slate-50 text-slate-800'}`}>
+                              <span className="select-none text-slate-300 w-8 text-right shrink-0">{idx + 1}</span>
+                              <span className="leading-relaxed whitespace-pre-wrap">
+                                {parts.map((part, pIdx) => part.toLowerCase() === resumeSearchQuery.toLowerCase() ? (
+                                  <mark key={pIdx} className="bg-amber-300 text-slate-900 px-0.5 rounded font-bold">{part}</mark>
+                                ) : part)}
+                              </span>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-slate-400 py-8 text-center">
+                      No raw text recorded for this candidate.
+                    </div>
+                  )}
                 </div>
               </div>
             )}

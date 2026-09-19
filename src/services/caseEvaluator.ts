@@ -299,6 +299,7 @@ export class CaseEvaluator {
       ],
       embedding: data.embedding,
       rawText: data.rawText,
+      pdfDataUrl: data.pdfDataUrl,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };

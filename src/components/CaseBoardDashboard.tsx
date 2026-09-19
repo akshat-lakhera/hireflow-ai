@@ -19,10 +19,12 @@ import {
   Database, 
   Scale, 
   Zap,
-  Mail
+  Mail,
+  Settings
 } from 'lucide-react';
 import { AiService } from '../services/aiApi';
 import { RecruiterAgentCopilot } from './RecruiterAgentCopilot';
+import { ResumeViewerModal } from './ResumeViewerModal';
 
 interface CaseBoardDashboardProps {
   role: RoleSetup;
@@ -103,6 +105,10 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
   // Copilot and Mobile Tab Navigation
   const [isCopilotOpen, setIsCopilotOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState<'pipeline' | 'dossier' | 'actions'>('dossier');
+
+  // Resume Viewer & Settings Dropdown states
+  const [resumeViewerCandidate, setResumeViewerCandidate] = useState<CandidateCaseFile | null>(null);
+  const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
 
   const [isDraggingLeft, setIsDraggingLeft] = useState(false);
   const [isDraggingRight, setIsDraggingRight] = useState(false);
@@ -252,123 +258,133 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
           </button>
         </div>
 
-        {/* Center: AI Engine & Vector Database Status Pills */}
-        <div className="flex items-center gap-2">
+        {/* Center: Sleek AI Status Badge */}
+        <div className="flex items-center">
           <button
             onClick={onOpenAiSettings}
-            className={`px-2.5 py-1 rounded-full text-xs font-medium border flex items-center gap-1.5 transition-all ${
+            className={`px-3 py-1 rounded-full text-xs font-medium border flex items-center gap-2 transition-all shadow-2xs cursor-pointer ${
               isAiActive
-                ? 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
                 : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200/60'
             }`}
+            title="Configure AI Engine & API Keys"
           >
-            <Sparkles className={`w-3.5 h-3.5 ${isAiActive ? 'text-indigo-600' : 'text-slate-400'}`} />
-            <span className="text-[11px] truncate max-w-[160px] md:max-w-none">
+            <span className={`w-2 h-2 rounded-full ${isAiActive ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`} />
+            <span className="text-[11px] font-semibold">
               {isAiActive 
                 ? `${aiConfig.provider === 'groq' ? '⚡ Groq' : aiConfig.provider === 'gemini' ? 'Gemini' : 'OpenAI'} (${aiConfig.model})`
                 : '⚡ Local Engine (Add API Key)'}
             </span>
           </button>
-
-          {onOpenDatabaseSettings && (
-            <button
-              onClick={onOpenDatabaseSettings}
-              className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors shadow-2xs"
-              title="Database & Vector Storage (IndexedDB + Supabase pgvector 384-dim)"
-            >
-              <Database className="w-3.5 h-3.5 text-indigo-600" />
-              <span className="text-[11px] font-medium">PostgreSQL & Vector</span>
-              <span className="text-[10px] font-mono bg-indigo-50 text-indigo-700 px-1.5 py-0.2 rounded border border-indigo-100">
-                384-dim
-              </span>
-            </button>
-          )}
-
-          {onOpenGmailSettings && (
-            <button
-              onClick={onOpenGmailSettings}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors shadow-2xs"
-              title="Gmail API & Automated Candidate Sync Settings"
-            >
-              <Mail className="w-3.5 h-3.5 text-indigo-600" />
-              <span className="text-[11px] font-medium hidden sm:inline">Gmail Sync</span>
-            </button>
-          )}
         </div>
 
-
-        {/* Right: Actions & Panel Toggle */}
+        {/* Right: Focused Primary Actions & Settings Menu */}
         <div className="flex items-center gap-2">
           {selectedForCompare.length >= 2 && (
             <button
               onClick={handleLaunchCompare}
-              className="px-2.5 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded-lg flex items-center gap-1 transition-colors shadow-sm"
+              className="px-2.5 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded-lg flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
             >
-              <FileSpreadsheet className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Compare</span> ({selectedForCompare.length})
-            </button>
-          )}
-
-          {/* Recruiter RAG Copilot Agent Button */}
-          <button
-            onClick={() => setIsCopilotOpen(true)}
-            className="px-2.5 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded-lg flex items-center gap-1.5 transition-colors shadow-2xs"
-            title="Open AI Recruiter Copilot (Natural Language RAG Agent)"
-          >
-            <Bot className="w-3.5 h-3.5 text-indigo-600" />
-            <span className="hidden md:inline">AI Copilot</span>
-          </button>
-
-          {/* Autonomous Screener Agent Trigger */}
-          {onOpenAutonomousScreener && (
-            <button
-              onClick={onOpenAutonomousScreener}
-              className="px-2.5 py-1.5 text-xs font-semibold text-white bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 hover:from-indigo-700 hover:to-purple-700 border border-indigo-500/50 rounded-lg flex items-center gap-1.5 transition-all shadow-sm shadow-indigo-600/20 cursor-pointer"
-              title="Run Autonomous Candidate Screener Agent (Multi-step pipeline evaluation & triage)"
-            >
-              <Zap className="w-3.5 h-3.5 fill-indigo-200 text-white animate-pulse" />
-              <span className="hidden sm:inline">Autonomous Screener</span>
-            </button>
-          )}
-
-          <button
-            onClick={onOpenUpload}
-            className="px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center gap-1.5 shadow-sm transition-colors"
-          >
-            <UploadCloud className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Add Candidate</span>
-          </button>
-
-          {candidates.length > 0 && (
-            <button
-              onClick={onClearBoard}
-              className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-100 transition-colors"
-              title="Clear Pipeline"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          )}
-
-          {/* Compare Matrix Header Action */}
-          {selectedForCompare.length > 0 && (
-            <button
-              onClick={handleLaunchCompare}
-              disabled={selectedForCompare.length < 2}
-              className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs ${
-                selectedForCompare.length >= 2
-                  ? 'bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-600 ring-2 ring-indigo-500/20'
-                  : 'bg-indigo-50 text-indigo-600 border-indigo-200 cursor-not-allowed opacity-80'
-              }`}
-              title={
-                selectedForCompare.length >= 2
-                  ? 'Compare 2 candidates side-by-side'
-                  : 'Select at least 2 candidates to compare'
-              }
-            >
-              <Scale className="w-3.5 h-3.5" />
+              <Scale className="w-3.5 h-3.5 text-indigo-600" />
               <span>Compare ({selectedForCompare.length})</span>
             </button>
           )}
+
+          {/* Autonomous Screener Agent */}
+          {onOpenAutonomousScreener && (
+            <button
+              onClick={onOpenAutonomousScreener}
+              className="px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+              title="Run Autonomous Candidate Screener Agent (Multi-step pipeline evaluation & triage)"
+            >
+              <Zap className="w-3.5 h-3.5 fill-indigo-200" />
+              <span className="hidden sm:inline">Screen Pipeline</span>
+            </button>
+          )}
+
+          {/* Add Candidate */}
+          <button
+            onClick={onOpenUpload}
+            className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+          >
+            <UploadCloud className="w-3.5 h-3.5 text-indigo-600" />
+            <span className="hidden sm:inline">Add Candidate</span>
+          </button>
+
+          {/* Settings & System Integrations Menu */}
+          <div className="relative">
+            <button
+              onClick={() => setIsSettingsMenuOpen(!isSettingsMenuOpen)}
+              className={`p-1.5 rounded-lg border transition-colors shadow-2xs cursor-pointer ${
+                isSettingsMenuOpen
+                  ? 'bg-slate-100 text-slate-900 border-slate-300'
+                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+              }`}
+              title="Integrations & Settings (Gmail Sync, Vector DB, AI Keys)"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+
+            {isSettingsMenuOpen && (
+              <div 
+                className="absolute right-0 mt-2 w-60 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 text-xs animate-in fade-in zoom-in-95 duration-100 divide-y divide-slate-100"
+                onMouseLeave={() => setIsSettingsMenuOpen(false)}
+              >
+                <div className="py-1">
+                  {onOpenGmailSettings && (
+                    <button
+                      onClick={() => { setIsSettingsMenuOpen(false); onOpenGmailSettings(); }}
+                      className="w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <Mail className="w-4 h-4 text-indigo-600 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-slate-800">Gmail Candidate Sync</div>
+                        <div className="text-[10px] text-slate-400 truncate">Automated candidate email dispatch</div>
+                      </div>
+                    </button>
+                  )}
+
+                  {onOpenDatabaseSettings && (
+                    <button
+                      onClick={() => { setIsSettingsMenuOpen(false); onOpenDatabaseSettings(); }}
+                      className="w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <Database className="w-4 h-4 text-indigo-600 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-slate-800">Vector Storage & DB</div>
+                        <div className="text-[10px] text-slate-400 truncate">Supabase pgvector & local IndexedDB</div>
+                      </div>
+                    </button>
+                  )}
+
+                  {onOpenAiSettings && (
+                    <button
+                      onClick={() => { setIsSettingsMenuOpen(false); onOpenAiSettings(); }}
+                      className="w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-slate-800">AI Engine & API Keys</div>
+                        <div className="text-[10px] text-slate-400 truncate">Groq, Gemini & OpenAI configs</div>
+                      </div>
+                    </button>
+                  )}
+                </div>
+
+                {candidates.length > 0 && onClearBoard && (
+                  <div className="py-1">
+                    <button
+                      onClick={() => { setIsSettingsMenuOpen(false); onClearBoard(); }}
+                      className="w-full px-3 py-2 text-left text-rose-600 hover:bg-rose-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="w-4 h-4 text-rose-500 shrink-0" />
+                      <span className="font-semibold">Clear Candidate Pipeline</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           <div className="h-5 w-px bg-slate-200" />
 
@@ -466,6 +482,7 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
                       onSelect={() => onSelectCandidate(c)}
                       onOpenDetail={() => onOpenCaseFile(c)}
                       onOpenInterviewKit={() => onOpenInterviewKit(c)}
+                      onOpenResume={() => setResumeViewerCandidate(c)}
                       onToggleCompare={() => toggleCompare(c.id)}
                     />
                   ))
@@ -675,6 +692,13 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
         onAddNote={onAddNote}
         onFilterPipeline={(q) => setSearchQuery(q)}
         onRunAutonomousScreener={onOpenAutonomousScreener}
+      />
+
+      {/* Standalone Original Resume & PDF Viewer Modal */}
+      <ResumeViewerModal
+        candidate={resumeViewerCandidate}
+        isOpen={!!resumeViewerCandidate}
+        onClose={() => setResumeViewerCandidate(null)}
       />
 
     </div>
