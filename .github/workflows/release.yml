@@ -1,0 +1,68 @@
+name: Create GitHub Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and Publish Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production bundle
+        run: |
+          npm run build
+          cd dist
+          zip -r ../talentdossier-v1.0.0-standalone.zip ./*
+          cd ..
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name || 'v1.0.0' }}
+          name: TalentDossier v1.0.0 — Autonomous AI Recruiter Intelligence System
+          files: talentdossier-v1.0.0-standalone.zip
+          draft: false
+          prerelease: false
+          body: |
+            ## 🚀 TalentDossier v1.0.0 — Production Release
+            *Autonomous Candidate Screening, Evidence Verification & Workspace Tool Execution*
+
+            TalentDossier is an Autonomous Agentic Candidate Screening & Recruiter Intelligence Workspace that transforms raw applicant resumes into verifiable, evidence-grounded hiring decisions.
+
+            ### 📦 Download & Run (Zero Setup)
+            Download **`talentdossier-v1.0.0-standalone.zip`** from the assets below!
+            1. Unzip the downloaded file.
+            2. Serve locally with any lightweight static server:
+               ```bash
+               # Using Node.js
+               npx serve .
+
+               # Or using Python
+               python -m http.server 8080
+               ```
+            3. Open `http://localhost:3000` or `http://localhost:8080` in your browser. All vector embeddings, resume parsing, and local agent reasoning run 100% in-browser with zero external telemetry leakage.
+
+            ### 🌟 Key Highlights
+            - **Autonomous Screener Agent**: Multi-step ReAct pipeline with qualification triage and immutable audit commits.
+            - **Recruiter Agent Copilot**: 7 executable workspace tools with interactive ReAct receipts.
+            - **Original Resume Inspection**: Line-numbered verbatim text viewer, keyword search highlighting, and embedded PDF viewer.
+            - **Structured Technical Interview Kit**: Real-time STT voice notes & confidential rubric TTS.
+            - **Dual-Layer Storage**: 384-dimensional dense vector engine in IndexedDB + Supabase pgvector sync.
