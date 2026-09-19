@@ -357,7 +357,7 @@ export function App() {
         <OnboardingWizard
           initialRole={role}
           onComplete={handleOnboardingComplete}
-          onCancel={() => setView('dashboard')}
+          onCancel={() => setView('landing')}
         />
       )}
 
