@@ -13,7 +13,9 @@ import {
   ArrowUpRight,
   AlertCircle,
   Zap,
-  Check
+  Check,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 
 export interface ExecutedActionReceipt {
@@ -171,6 +173,89 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
 }) => {
   const [aiConfig, setAiConfig] = useState<AiConfig>(() => AiService.getConfig());
   const [isAiConfigured, setIsAiConfigured] = useState<boolean>(() => AiService.isConfigured());
+
+  // Dynamic, expansive chat window size (persisted in localStorage)
+  const [drawerWidth, setDrawerWidth] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('talentdossier_copilot_width');
+      if (saved) {
+        const num = parseInt(saved, 10);
+        if (!isNaN(num) && num >= 480 && num <= 1400) return num;
+      }
+    } catch {
+      // ignore
+    }
+    // High-taste default: 680px wide on desktop (expanded from 440px)
+    return typeof window !== 'undefined' && window.innerWidth < 768 ? window.innerWidth : 680;
+  });
+  const [isMaximized, setIsMaximized] = useState<boolean>(false);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const prevWidthRef = useRef<number>(680);
+
+  const startDragging = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const distFromRight = window.innerWidth - moveEvent.clientX;
+      const minWidth = 480;
+      const maxWidth = Math.min(1360, window.innerWidth - 40);
+      const clamped = Math.max(minWidth, Math.min(maxWidth, distFromRight));
+      setDrawerWidth(clamped);
+      setIsMaximized(false);
+      try {
+        localStorage.setItem('talentdossier_copilot_width', String(clamped));
+      } catch {
+        // ignore
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const toggleMaximize = () => {
+    if (isMaximized) {
+      setIsMaximized(false);
+      const restored = prevWidthRef.current || 680;
+      setDrawerWidth(restored);
+      try {
+        localStorage.setItem('talentdossier_copilot_width', String(restored));
+      } catch {
+        // ignore
+      }
+    } else {
+      prevWidthRef.current = drawerWidth;
+      setIsMaximized(true);
+      const maxW = Math.min(1180, Math.floor(window.innerWidth * 0.78));
+      setDrawerWidth(maxW);
+      try {
+        localStorage.setItem('talentdossier_copilot_width', String(maxW));
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  const setWidthPreset = (width: number) => {
+    setIsMaximized(false);
+    setDrawerWidth(width);
+    try {
+      localStorage.setItem('talentdossier_copilot_width', String(width));
+    } catch {
+      // ignore
+    }
+  };
 
   useEffect(() => {
     const syncConfig = () => {
@@ -434,7 +519,25 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
   };
 
   return (
-    <div className="fixed inset-y-0 right-0 z-40 w-full sm:w-[440px] bg-white border-l border-slate-200 shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
+    <div 
+      style={{
+        width: typeof window !== 'undefined' && window.innerWidth < 640 ? '100%' : `${drawerWidth}px`,
+        maxWidth: '100vw'
+      }}
+      className={`fixed inset-y-0 right-0 z-40 bg-white border-l border-slate-200 shadow-2xl flex flex-col animate-in slide-in-from-right duration-200 ${
+        isDragging ? 'select-none' : 'transition-[width] duration-150 ease-out'
+      }`}
+    >
+      {/* Draggable left edge resize handle */}
+      <div
+        onMouseDown={startDragging}
+        className="hidden sm:flex absolute left-0 top-0 bottom-0 w-2.5 -ml-1 cursor-col-resize z-50 items-center justify-center group hover:bg-indigo-500/20 active:bg-indigo-600/30 transition-colors"
+        title="Drag left edge to resize chat window"
+      >
+        <div className="w-1 h-12 rounded-full bg-slate-300 group-hover:bg-indigo-600 transition-colors flex items-center justify-center">
+          <div className="w-0.5 h-6 bg-slate-400 group-hover:bg-white rounded-full" />
+        </div>
+      </div>
       
       {/* Header */}
       <div className="h-14 px-4 border-b border-slate-200 flex items-center justify-between bg-white shrink-0">
@@ -465,6 +568,52 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
         </div>
 
         <div className="flex items-center gap-1">
+          {/* Quick Width Presets */}
+          <div className="hidden md:flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg mr-1 border border-slate-200/60">
+            <button
+              onClick={() => setWidthPreset(580)}
+              className={`px-2 py-0.5 text-[10px] font-medium rounded transition-colors cursor-pointer ${
+                drawerWidth <= 620 && !isMaximized
+                  ? 'bg-white text-indigo-700 font-semibold shadow-2xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+              title="Compact width (580px)"
+            >
+              580px
+            </button>
+            <button
+              onClick={() => setWidthPreset(760)}
+              className={`px-2 py-0.5 text-[10px] font-medium rounded transition-colors cursor-pointer ${
+                drawerWidth > 620 && drawerWidth <= 860 && !isMaximized
+                  ? 'bg-white text-indigo-700 font-semibold shadow-2xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+              title="Standard wide (760px)"
+            >
+              760px
+            </button>
+            <button
+              onClick={() => setWidthPreset(980)}
+              className={`px-2 py-0.5 text-[10px] font-medium rounded transition-colors cursor-pointer ${
+                (drawerWidth > 860 || isMaximized)
+                  ? 'bg-white text-indigo-700 font-semibold shadow-2xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+              title="Ultra wide (980px)"
+            >
+              980px
+            </button>
+          </div>
+
+          {/* Maximize/Minimize toggle */}
+          <button
+            onClick={toggleMaximize}
+            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer hidden sm:block"
+            title={isMaximized ? "Restore standard width" : "Maximize / Expand chat window"}
+          >
+            {isMaximized ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+          </button>
+
           <button
             onClick={handleClearChat}
             className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
@@ -511,13 +660,13 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
       )}
 
       {/* Suggested Chips */}
-      <div className="px-3 py-2 bg-slate-50/80 border-b border-slate-100 flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
+      <div className="px-4 py-2.5 bg-slate-50/80 border-b border-slate-100 flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0">
         {promptChips.map((chip, idx) => (
           <button
             key={idx}
             onClick={() => handleChipClick(chip)}
             disabled={isLoading}
-            className={`text-[11px] font-medium border px-2.5 py-1 rounded-full whitespace-nowrap shadow-2xs transition-colors shrink-0 disabled:opacity-50 cursor-pointer ${
+            className={`text-xs font-medium border px-3 py-1.5 rounded-full whitespace-nowrap shadow-2xs transition-colors shrink-0 disabled:opacity-50 cursor-pointer ${
               !isAiConfigured
                 ? 'bg-amber-50/60 text-amber-800 border-amber-200 hover:bg-amber-100'
                 : chip.includes('⚡')
@@ -531,20 +680,20 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
       </div>
 
       {/* Messages Stream */}
-      <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-slate-50/40">
+      <div className="flex-1 p-5 overflow-y-auto space-y-4 bg-slate-50/40">
         {messages.map((m) => (
           <div
             key={m.id}
             className={`flex flex-col ${m.sender === 'user' ? 'items-end' : 'items-start'}`}
           >
-            <div className="text-[10px] text-slate-400 mb-1 px-1 flex items-center gap-1">
-              <span>{m.sender === 'user' ? 'You' : 'TalentDossier Agent'}</span>
+            <div className="text-[11px] text-slate-400 mb-1 px-1 flex items-center gap-1">
+              <span className="font-medium">{m.sender === 'user' ? 'You' : 'TalentDossier Agent'}</span>
               <span>•</span>
               <span>{m.timestamp}</span>
             </div>
 
             <div
-              className={`max-w-[92%] rounded-xl p-3.5 text-xs leading-relaxed shadow-2xs ${
+              className={`max-w-[94%] rounded-xl p-4 text-[13px] leading-relaxed shadow-2xs ${
                 m.sender === 'user'
                   ? 'bg-indigo-600 text-white rounded-tr-xs'
                   : 'bg-white text-slate-800 border border-slate-200 rounded-tl-xs'
@@ -555,7 +704,7 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
 
               {/* Agent Action Execution Receipt */}
               {m.actionReceipt && (
-                <div className="mt-3 p-3 rounded-xl border border-indigo-200/90 bg-gradient-to-br from-indigo-50/90 via-white to-purple-50/60 shadow-xs space-y-2 text-xs text-slate-800">
+                <div className="mt-3 p-3.5 rounded-xl border border-indigo-200/90 bg-gradient-to-br from-indigo-50/90 via-white to-purple-50/60 shadow-xs space-y-2 text-xs text-slate-800">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5 text-indigo-800 font-bold">
                       <div className="w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center">
@@ -572,13 +721,13 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
                   </div>
 
                   {m.actionReceipt.thought && (
-                    <div className="text-[11px] text-slate-600 bg-white/90 p-2 rounded-lg border border-indigo-100 font-sans leading-relaxed">
+                    <div className="text-xs text-slate-600 bg-white/90 p-2.5 rounded-lg border border-indigo-100 font-sans leading-relaxed">
                       <strong className="text-slate-800">Agent Reasoning: </strong>
                       {m.actionReceipt.thought}
                     </div>
                   )}
 
-                  <div className="text-[11px] font-medium text-slate-700 flex items-center gap-1.5 pt-0.5">
+                  <div className="text-xs font-medium text-slate-700 flex items-center gap-1.5 pt-0.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
                     <span>{m.actionReceipt.resultSummary}</span>
                   </div>
@@ -587,18 +736,18 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
 
               {/* Mentioned Candidate Quick Jump Chips */}
               {m.sender === 'agent' && candidates.length > 0 && isAiConfigured && (
-                <div className="mt-2.5 pt-2 border-t border-slate-100 flex flex-wrap gap-1.5">
+                <div className="mt-3 pt-2.5 border-t border-slate-100 flex flex-wrap gap-1.5">
                   {candidates
                     .filter(c => m.text.toLowerCase().includes(c.name.toLowerCase()))
                     .map(c => (
                       <button
                         key={c.id}
                         onClick={() => onSelectCandidate(c)}
-                        className="inline-flex items-center gap-1 text-[10px] font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 px-2.5 py-1 rounded-md transition-colors cursor-pointer"
                         title={`View ${c.name}'s dossier in workspace`}
                       >
                         <span>View {c.name} ({c.matchScore}%)</span>
-                        <ArrowUpRight className="w-3 h-3" />
+                        <ArrowUpRight className="w-3.5 h-3.5" />
                       </button>
                     ))}
                 </div>
@@ -608,7 +757,7 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
         ))}
 
         {isLoading && (
-          <div className="flex items-center gap-2 text-xs text-slate-500 bg-white p-3 rounded-xl border border-slate-200 w-fit">
+          <div className="flex items-center gap-2 text-xs text-slate-500 bg-white p-3.5 rounded-xl border border-slate-200 w-fit">
             <Sparkles className="w-4 h-4 text-indigo-600 animate-spin" />
             <span>Consulting pipeline database & executing agent reasoning loop...</span>
           </div>
@@ -618,22 +767,22 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
       </div>
 
       {/* Input Form */}
-      <div className="p-3 border-t border-slate-200 bg-white shrink-0">
+      <div className="p-4 border-t border-slate-200 bg-white shrink-0">
         <form
           onSubmit={(e) => {
             e.preventDefault();
             handleSend();
           }}
-          className="flex items-center gap-2"
+          className="flex items-center gap-2.5"
         >
           <div className="relative flex-1">
             <input
               type="text"
-              placeholder={isAiConfigured ? "Command agent: e.g. 'compare Maya and Alex' or 'screen pipeline'..." : "Configure API key in AI Settings to chat..."}
+              placeholder={isAiConfigured ? "Command agent: e.g. 'compare candidate A and B' or 'screen pipeline'..." : "Configure API key in AI Settings to chat..."}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               disabled={isLoading}
-              className="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg pl-3 pr-9 py-2.5 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl pl-4 pr-11 py-3 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
             />
             
             {/* Voice Dictation Button */}
@@ -641,7 +790,7 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
               type="button"
               onClick={toggleVoiceInput}
               disabled={!isAiConfigured}
-              className={`absolute right-2 top-2 p-1 rounded transition-colors ${
+              className={`absolute right-3 top-3 p-1 rounded transition-colors ${
                 isRecording
                   ? 'text-rose-600 bg-rose-50 animate-pulse'
                   : !isAiConfigured
@@ -650,24 +799,29 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
               }`}
               title={isAiConfigured ? "Voice dictate query" : "Configure API key to use voice dictation"}
             >
-              {isRecording ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+              {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
             </button>
           </div>
 
           <button
             type="submit"
             disabled={!input.trim() || isLoading}
-            className="p-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-40 transition-colors shadow-sm shrink-0 cursor-pointer"
+            className="p-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-40 transition-colors shadow-sm shrink-0 cursor-pointer"
             title="Send command"
           >
             <Send className="w-4 h-4" />
           </button>
         </form>
-        <p className="text-[10px] text-slate-400 mt-1.5 text-center">
-          {isAiConfigured 
-            ? "Grounded in active pipeline embeddings & executes real workspace actions."
-            : "Zero fake or hardcoded answers. Configure an API key to enable Copilot."}
-        </p>
+        <div className="flex items-center justify-between text-[11px] text-slate-400 mt-2 px-1">
+          <span>
+            {isAiConfigured 
+              ? "Grounded in active pipeline embeddings & executes real workspace actions."
+              : "Authentic LLM evaluation only. Zero hardcoded/dummy answers."}
+          </span>
+          <span className="hidden sm:inline font-mono text-[10px] text-slate-400">
+            {drawerWidth}px • Drag left border to resize
+          </span>
+        </div>
       </div>
 
     </div>
