@@ -1,7 +1,7 @@
 import { CandidateCaseFile, DatabaseConfig, DatabaseSyncResult } from '../types';
 import { VectorEmbeddingService } from './vectorEmbeddingService';
 
-const DB_NAME = 'hireflow_local_db';
+const DB_NAME = 'talentdossier_local_db';
 const DB_VERSION = 1;
 const STORE_CANDIDATES = 'candidates';
 const STORE_CONFIG = 'database_config';
@@ -78,7 +78,7 @@ export class DatabaseService {
     }
 
     try {
-      const saved = localStorage.getItem('hireflow_db_config');
+      const saved = localStorage.getItem('talentdossier_db_config') || localStorage.getItem('hireflow_db_config');
       if (saved) {
         this.configCache = { ...DEFAULT_CONFIG, ...JSON.parse(saved) };
         return this.configCache;
@@ -97,7 +97,7 @@ export class DatabaseService {
   public static async saveConfig(config: DatabaseConfig): Promise<void> {
     this.configCache = { ...config };
     try {
-      localStorage.setItem('hireflow_db_config', JSON.stringify(config));
+      localStorage.setItem('talentdossier_db_config', JSON.stringify(config));
     } catch (e) {
       console.warn('Failed saving db config to localStorage:', e);
     }
@@ -130,7 +130,7 @@ export class DatabaseService {
    */
   public static async getAllCandidates(): Promise<CandidateCaseFile[]> {
     const db = await this.getDB();
-    return new Promise((resolve, reject) => {
+    const loaded = await new Promise<CandidateCaseFile[]>((resolve, reject) => {
       const tx = db.transaction(STORE_CANDIDATES, 'readonly');
       const store = tx.objectStore(STORE_CANDIDATES);
       const req = store.getAll();
@@ -144,6 +144,48 @@ export class DatabaseService {
 
       req.onerror = () => reject(req.error);
     });
+
+    if (loaded.length > 0) {
+      return loaded;
+    }
+
+    // Seamless migration from legacy local database if present
+    try {
+      if (typeof window !== 'undefined' && window.indexedDB) {
+        const legacyCandidates = await new Promise<CandidateCaseFile[]>((resolve) => {
+          const legacyReq = indexedDB.open('hireflow_local_db', 1);
+          legacyReq.onsuccess = () => {
+            const legacyDb = legacyReq.result;
+            if (!legacyDb.objectStoreNames.contains(STORE_CANDIDATES)) {
+              legacyDb.close();
+              resolve([]);
+              return;
+            }
+            const ltx = legacyDb.transaction(STORE_CANDIDATES, 'readonly');
+            const lstore = ltx.objectStore(STORE_CANDIDATES);
+            const lget = lstore.getAll();
+            lget.onsuccess = () => {
+              legacyDb.close();
+              resolve((lget.result as CandidateCaseFile[]) || []);
+            };
+            lget.onerror = () => {
+              legacyDb.close();
+              resolve([]);
+            };
+          };
+          legacyReq.onerror = () => resolve([]);
+        });
+
+        if (legacyCandidates && legacyCandidates.length > 0) {
+          await this.saveCandidates(legacyCandidates);
+          return legacyCandidates;
+        }
+      }
+    } catch {
+      // ignore legacy migration notice
+    }
+
+    return [];
   }
 
   /**

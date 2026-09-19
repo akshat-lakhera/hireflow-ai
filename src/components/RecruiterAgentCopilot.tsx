@@ -158,9 +158,11 @@ export const RecruiterAgentCopilot: React.FC<RecruiterAgentCopilotProps> = ({
       setIsAiConfigured(AiService.isConfigured());
     };
 
+    window.addEventListener('talentdossier-ai-config-updated', syncConfig);
     window.addEventListener('hireflow-ai-config-updated', syncConfig);
     window.addEventListener('storage', syncConfig);
     return () => {
+      window.removeEventListener('talentdossier-ai-config-updated', syncConfig);
       window.removeEventListener('hireflow-ai-config-updated', syncConfig);
       window.removeEventListener('storage', syncConfig);
     };

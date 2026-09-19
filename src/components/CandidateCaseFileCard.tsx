@@ -6,23 +6,28 @@ import {
   MapPin, 
   Briefcase, 
   ArrowUpRight,
-  Sparkles
+  Sparkles,
+  Scale
 } from 'lucide-react';
 
 interface CandidateCaseFileCardProps {
   candidate: CandidateCaseFile;
   isSelected: boolean;
+  isCompareSelected?: boolean;
   reviewMode: ReviewMode;
   onSelect: () => void;
   onOpenDetail: () => void;
   onOpenInterviewKit: () => void;
+  onToggleCompare?: () => void;
 }
 
 export const CandidateCaseFileCard: React.FC<CandidateCaseFileCardProps> = ({
   candidate,
   isSelected,
+  isCompareSelected = false,
   onSelect,
-  onOpenDetail
+  onOpenDetail,
+  onToggleCompare
 }) => {
   const getBadgeClasses = (badge: CandidateCaseFile['fitBadge']) => {
     switch (badge) {
@@ -58,10 +63,12 @@ export const CandidateCaseFileCard: React.FC<CandidateCaseFileCardProps> = ({
   return (
     <div
       onClick={onSelect}
-      className={`group cursor-pointer rounded-xl border p-4 transition-all ${
-        isSelected
-          ? 'bg-indigo-50/30 border-indigo-500 ring-1 ring-indigo-500 shadow-sm'
-          : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-sm'
+      className={`group cursor-pointer rounded-xl border p-4 transition-all relative ${
+        isCompareSelected
+          ? 'bg-indigo-50/40 border-indigo-500 ring-2 ring-indigo-500/70 shadow-sm'
+          : isSelected
+            ? 'bg-indigo-50/30 border-indigo-500 ring-1 ring-indigo-500 shadow-sm'
+            : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-sm'
       }`}
     >
       {/* Top row: Avatar + Name + Fit Score */}
@@ -117,18 +124,38 @@ export const CandidateCaseFileCard: React.FC<CandidateCaseFileCardProps> = ({
         )}
       </div>
 
-      {/* Card Footer: Status + Details Action */}
-      <div className="mt-3.5 pt-2.5 border-t border-slate-100 flex items-center justify-between">
-        <span className={`text-[11px] font-medium px-2 py-0.5 rounded border ${getStatusClasses(candidate.reviewStatus)}`}>
-          {candidate.reviewStatus}
-        </span>
+      {/* Card Footer: Status + Compare + Details Action */}
+      <div className="mt-3.5 pt-2.5 border-t border-slate-100 flex items-center justify-between gap-1.5">
+        <div className="flex items-center gap-1.5">
+          <span className={`text-[10px] font-medium px-2 py-0.5 rounded border ${getStatusClasses(candidate.reviewStatus)}`}>
+            {candidate.reviewStatus}
+          </span>
+          {onToggleCompare && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleCompare();
+              }}
+              className={`text-[10px] font-medium px-2 py-0.5 rounded border transition-colors flex items-center gap-1 ${
+                isCompareSelected
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs font-semibold'
+                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+              }`}
+              title={isCompareSelected ? 'Remove from comparison matrix' : 'Select for side-by-side comparison matrix'}
+            >
+              <Scale className="w-2.5 h-2.5" />
+              <span>{isCompareSelected ? 'Comparing' : 'Compare'}</span>
+            </button>
+          )}
+        </div>
 
         <button
           onClick={(e) => {
             e.stopPropagation();
             onOpenDetail();
           }}
-          className="text-xs font-medium text-slate-500 hover:text-indigo-600 flex items-center gap-0.5 transition-colors"
+          className="text-xs font-medium text-slate-500 hover:text-indigo-600 flex items-center gap-0.5 transition-colors shrink-0"
         >
           <span>View Dossier</span>
           <ArrowUpRight className="w-3.5 h-3.5" />

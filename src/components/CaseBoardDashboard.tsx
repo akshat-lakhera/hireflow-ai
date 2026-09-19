@@ -20,7 +20,8 @@ import {
   ChevronRight,
   MessageSquare,
   Bot,
-  Database
+  Database,
+  Scale
 } from 'lucide-react';
 import { AiService } from '../services/aiApi';
 import { RecruiterAgentCopilot } from './RecruiterAgentCopilot';
@@ -77,7 +78,7 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
   // Resizable Panels State (like Antigravity IDE / VS Code)
   const [leftWidth, setLeftWidth] = useState<number>(() => {
     try {
-      const saved = localStorage.getItem('hireflow_left_width');
+      const saved = localStorage.getItem('talentdossier_left_width') || localStorage.getItem('hireflow_left_width');
       return saved ? Math.max(180, Math.min(600, Number(saved))) : 280;
     } catch {
       return 280;
@@ -86,7 +87,7 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
 
   const [rightWidth, setRightWidth] = useState<number>(() => {
     try {
-      const saved = localStorage.getItem('hireflow_right_width');
+      const saved = localStorage.getItem('talentdossier_right_width') || localStorage.getItem('hireflow_right_width');
       return saved ? Math.max(220, Math.min(600, Number(saved))) : 320;
     } catch {
       return 320;
@@ -119,7 +120,7 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
         setIsLeftCollapsed(false);
         const newWidth = Math.max(180, Math.min(600, moveEvent.clientX));
         setLeftWidth(newWidth);
-        localStorage.setItem('hireflow_left_width', String(newWidth));
+        localStorage.setItem('talentdossier_left_width', String(newWidth));
       }
     };
 
@@ -149,7 +150,7 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
         setIsRightCollapsed(false);
         const newWidth = Math.max(200, Math.min(600, distFromRight));
         setRightWidth(newWidth);
-        localStorage.setItem('hireflow_right_width', String(newWidth));
+        localStorage.setItem('talentdossier_right_width', String(newWidth));
       }
     };
 
@@ -332,6 +333,27 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
             </button>
           )}
 
+          {/* Compare Matrix Header Action */}
+          {selectedForCompare.length > 0 && (
+            <button
+              onClick={handleLaunchCompare}
+              disabled={selectedForCompare.length < 2}
+              className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs ${
+                selectedForCompare.length >= 2
+                  ? 'bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-600 ring-2 ring-indigo-500/20'
+                  : 'bg-indigo-50 text-indigo-600 border-indigo-200 cursor-not-allowed opacity-80'
+              }`}
+              title={
+                selectedForCompare.length >= 2
+                  ? 'Compare 2 candidates side-by-side'
+                  : 'Select at least 2 candidates to compare'
+              }
+            >
+              <Scale className="w-3.5 h-3.5" />
+              <span>Compare ({selectedForCompare.length})</span>
+            </button>
+          )}
+
           <div className="h-5 w-px bg-slate-200" />
 
           {/* Toggle Right Inspector Button (IDE Style) */}
@@ -419,28 +441,56 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
                   </div>
                 ) : (
                   filteredCandidates.map((c) => (
-                    <div key={c.id} className="relative">
-                      <CandidateCaseFileCard
-                        candidate={c}
-                        isSelected={selectedCandidate?.id === c.id}
-                        reviewMode={reviewMode}
-                        onSelect={() => onSelectCandidate(c)}
-                        onOpenDetail={() => onOpenCaseFile(c)}
-                        onOpenInterviewKit={() => onOpenInterviewKit(c)}
-                      />
-                      {/* Compare checkbox */}
-                      <label className="absolute top-2 right-2 flex items-center gap-1 text-[10px] text-slate-400 hover:text-slate-600 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={selectedForCompare.includes(c.id)}
-                          onChange={() => toggleCompare(c.id)}
-                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-3 h-3"
-                        />
-                      </label>
-                    </div>
+                    <CandidateCaseFileCard
+                      key={c.id}
+                      candidate={c}
+                      isSelected={selectedCandidate?.id === c.id}
+                      isCompareSelected={selectedForCompare.includes(c.id)}
+                      reviewMode={reviewMode}
+                      onSelect={() => onSelectCandidate(c)}
+                      onOpenDetail={() => onOpenCaseFile(c)}
+                      onOpenInterviewKit={() => onOpenInterviewKit(c)}
+                      onToggleCompare={() => toggleCompare(c.id)}
+                    />
                   ))
                 )}
               </div>
+
+              {/* Docked Comparison Tray in Left Pipeline Panel */}
+              {selectedForCompare.length > 0 && (
+                <div className="mt-2.5 p-2.5 bg-indigo-50/95 border border-indigo-200 rounded-xl flex items-center justify-between gap-2 shadow-sm shrink-0 animate-in fade-in duration-150">
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-bold text-indigo-900 flex items-center gap-1.5">
+                      <Scale className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                      <span>{selectedForCompare.length} selected</span>
+                    </div>
+                    <p className="text-[10px] text-indigo-700 truncate mt-0.5">
+                      {selectedForCompare.length >= 2 ? 'Ready for matrix comparison' : 'Pick 1 more to compare'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedForCompare([])}
+                      className="px-2 py-1 text-[10px] font-medium text-slate-500 hover:text-slate-800 rounded transition-colors"
+                    >
+                      Clear
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleLaunchCompare}
+                      disabled={selectedForCompare.length < 2}
+                      className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg transition-colors ${
+                        selectedForCompare.length >= 2
+                          ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs'
+                          : 'bg-indigo-200 text-indigo-400 cursor-not-allowed'
+                      }`}
+                    >
+                      Compare
+                    </button>
+                  </div>
+                </div>
+              )}
             </aside>
 
             {/* DRAGGABLE SPLITTER 1 (Between Left & Center) */}
@@ -448,7 +498,7 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
               onMouseDown={startDraggingLeft}
               onDoubleClick={() => {
                 setLeftWidth(280);
-                localStorage.setItem('hireflow_left_width', '280');
+                localStorage.setItem('talentdossier_left_width', '280');
               }}
               className={`w-2 -ml-1 cursor-col-resize flex items-center justify-center group relative shrink-0 z-20 transition-colors ${
                 isDraggingLeft ? 'bg-indigo-500' : 'bg-transparent hover:bg-indigo-500/20'
@@ -522,7 +572,7 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
               onMouseDown={startDraggingRight}
               onDoubleClick={() => {
                 setRightWidth(320);
-                localStorage.setItem('hireflow_right_width', '320');
+                localStorage.setItem('talentdossier_right_width', '320');
               }}
               className={`w-2 -mr-1 cursor-col-resize flex items-center justify-center group relative shrink-0 z-20 transition-colors ${
                 isDraggingRight ? 'bg-indigo-500' : 'bg-transparent hover:bg-indigo-500/20'

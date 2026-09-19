@@ -27,8 +27,15 @@ export function App() {
   // Top-level Navigation View State (supports 404 fallback)
   const [view, setView] = useState<'landing' | 'onboarding' | 'dashboard' | 'not_found'>('landing');
 
-  // Role Configuration (Fully customizable)
-  const [role, setRole] = useState<RoleSetup>(DEFAULT_ROLE);
+  // Role Configuration (Fully customizable & persisted)
+  const [role, setRole] = useState<RoleSetup>(() => {
+    try {
+      const saved = localStorage.getItem('talentdossier_active_role') || localStorage.getItem('hireflow_active_role');
+      return saved ? JSON.parse(saved) : DEFAULT_ROLE;
+    } catch {
+      return DEFAULT_ROLE;
+    }
+  });
 
   // Candidate Pool (Starts with 1 sample reference case)
   const [candidates, setCandidates] = useState<CandidateCaseFile[]>(SAMPLE_CASE_FILES);
@@ -95,6 +102,11 @@ export function App() {
 
   const handleTrySampleCase = () => {
     setRole(DEFAULT_ROLE);
+    try {
+      localStorage.setItem('talentdossier_active_role', JSON.stringify(DEFAULT_ROLE));
+    } catch (e) {
+      console.warn('LocalStorage error:', e);
+    }
     setCandidates([SINGLE_SAMPLE_CASE]);
     setSelectedCandidateId(SINGLE_SAMPLE_CASE.id);
     DatabaseService.saveCandidate(SINGLE_SAMPLE_CASE).catch(e => console.warn('DB save notice:', e));
@@ -119,6 +131,11 @@ export function App() {
     newReviewMode: ReviewMode
   ) => {
     setRole(newRole);
+    try {
+      localStorage.setItem('talentdossier_active_role', JSON.stringify(newRole));
+    } catch (e) {
+      console.warn('LocalStorage error:', e);
+    }
     setReviewMode(newReviewMode);
 
     if (uploadedCandidates.length > 0) {
@@ -225,10 +242,11 @@ export function App() {
     questionId: string,
     answerText: string
   ) => {
+    let updatedCandidate: CandidateCaseFile | null = null;
     setCandidates(prev =>
       prev.map(c => {
         if (c.id === candidateId) {
-          return {
+          const updated = {
             ...c,
             interviewQuestions: c.interviewQuestions.map(q => {
               if (q.id === questionId) {
@@ -241,10 +259,20 @@ export function App() {
               return q;
             })
           };
+          updatedCandidate = updated;
+          DatabaseService.saveCandidate(updated).catch(e => console.warn('DB save notice:', e));
+          return updated;
         }
         return c;
       })
     );
+    if (updatedCandidate) {
+      setInterviewKitCandidate(updatedCandidate);
+      if (detailModalCandidate && detailModalCandidate.id === candidateId) {
+        setDetailModalCandidate(updatedCandidate);
+      }
+    }
+    showToast('Interview response saved to dossier', 'success');
   };
 
   // Deep AI Re-evaluation via live Gemini/OpenAI API
@@ -264,11 +292,12 @@ export function App() {
       ].join('\n\n');
 
       const result = await AiService.evaluateWithLLM(resumeContent, role);
+      let updatedCandidate: CandidateCaseFile | null = null;
 
-      setCandidates(prev =>
-        prev.map(c => {
+      setCandidates(prev => {
+        const next = prev.map(c => {
           if (c.id === candidate.id) {
-            return {
+            const updated = {
               ...c,
               matchScore: result.matchScore,
               fitBadge: result.fitBadge,
@@ -285,12 +314,23 @@ export function App() {
                 ...c.auditTrail
               ]
             };
+            updatedCandidate = updated;
+            DatabaseService.saveCandidate(updated).catch(e => console.warn('DB save notice:', e));
+            return updated;
           }
           return c;
-        })
-      );
+        });
+        return [...next].sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
+      });
+
+      if (updatedCandidate) {
+        if (detailModalCandidate && detailModalCandidate.id === candidate.id) {
+          setDetailModalCandidate(updatedCandidate);
+        }
+      }
+      showToast(`AI Re-evaluation complete: ${result.matchScore}% match score`, 'success');
     } catch (e: any) {
-      alert(`AI Evaluation error: ${e.message}`);
+      showToast(`AI Evaluation error: ${e.message || 'Unknown failure'}`, 'error');
     } finally {
       setIsAiEvaluating(false);
     }
@@ -304,6 +344,8 @@ export function App() {
         <LandingPage
           onStartOnboarding={handleStartOnboarding}
           onTrySampleCase={handleTrySampleCase}
+          onGoToDashboard={() => setView('dashboard')}
+          candidateCount={candidates.length}
         />
       )}
 

@@ -7,10 +7,12 @@ export interface AiConfig {
   sessionOnly?: boolean;
 }
 
-const STORAGE_KEY = 'hireflow_ai_config_secure';
-const LEGACY_STORAGE_KEY = 'hireflow_ai_config';
-const SESSION_STORAGE_KEY = 'hireflow_ai_config_session';
-const SALT_STRING = 'hf_sec_salt_v2$9x!@';
+const STORAGE_KEY = 'talentdossier_ai_config_secure';
+const LEGACY_STORAGE_KEY = 'hireflow_ai_config_secure';
+const LEGACY_UNENCRYPTED_KEY = 'hireflow_ai_config';
+const SESSION_STORAGE_KEY = 'talentdossier_ai_config_session';
+const LEGACY_SESSION_KEY = 'hireflow_ai_config_session';
+const SALT_STRING = 'td_sec_salt_v3$9x!@';
 
 /**
  * Base64 + Salt Obfuscation so API keys are never stored as plain text in browser storage
@@ -52,18 +54,18 @@ export class AiService {
 
     try {
       // 1. Check session storage first
-      const sessionSaved = sessionStorage.getItem(SESSION_STORAGE_KEY);
+      const sessionSaved = sessionStorage.getItem(SESSION_STORAGE_KEY) || sessionStorage.getItem(LEGACY_SESSION_KEY);
       if (sessionSaved) {
         rawConfig = JSON.parse(sessionSaved);
         isSession = true;
       } else {
         // 2. Check secure localStorage
-        const localSaved = localStorage.getItem(STORAGE_KEY);
+        const localSaved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
         if (localSaved) {
           rawConfig = JSON.parse(localSaved);
         } else {
           // 3. Fallback to legacy unencrypted storage for seamless migration
-          const legacySaved = localStorage.getItem(LEGACY_STORAGE_KEY);
+          const legacySaved = localStorage.getItem(LEGACY_UNENCRYPTED_KEY);
           if (legacySaved) {
             rawConfig = JSON.parse(legacySaved);
           }
@@ -88,17 +90,13 @@ export class AiService {
 
     // Default configuration with optional env fallback
     const envGroqKey = (import.meta as any).env?.VITE_GROQ_API_KEY || '';
-    const envGeminiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || '';
-    const envOpenAiKey = (import.meta as any).env?.VITE_OPENAI_API_KEY || '';
-
     if (envGroqKey) {
-      return { provider: 'groq', apiKey: envGroqKey, model: 'llama-3.3-70b-versatile', sessionOnly: false };
-    }
-    if (envGeminiKey) {
-      return { provider: 'gemini', apiKey: envGeminiKey, model: 'gemini-1.5-flash', sessionOnly: false };
-    }
-    if (envOpenAiKey) {
-      return { provider: 'openai', apiKey: envOpenAiKey, model: 'gpt-4o-mini', sessionOnly: false };
+      return {
+        provider: 'groq',
+        apiKey: envGroqKey,
+        model: 'llama-3.3-70b-versatile',
+        sessionOnly: false
+      };
     }
 
     return {
@@ -114,7 +112,7 @@ export class AiService {
       provider: config.provider,
       apiKey: obfuscateApiKey(config.apiKey),
       model: config.model,
-      sessionOnly: Boolean(config.sessionOnly),
+      sessionOnly: config.sessionOnly,
       isObfuscated: true,
       updatedAt: Date.now()
     };
@@ -123,13 +121,16 @@ export class AiService {
       sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(payload));
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(LEGACY_STORAGE_KEY);
+      localStorage.removeItem(LEGACY_UNENCRYPTED_KEY);
     } else {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
       sessionStorage.removeItem(SESSION_STORAGE_KEY);
       localStorage.removeItem(LEGACY_STORAGE_KEY);
+      localStorage.removeItem(LEGACY_UNENCRYPTED_KEY);
     }
 
     if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('talentdossier-ai-config-updated'));
       window.dispatchEvent(new CustomEvent('hireflow-ai-config-updated'));
     }
   }
@@ -137,8 +138,11 @@ export class AiService {
   public static clearConfig(): void {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(LEGACY_STORAGE_KEY);
+    localStorage.removeItem(LEGACY_UNENCRYPTED_KEY);
     sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    sessionStorage.removeItem(LEGACY_SESSION_KEY);
     if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('talentdossier-ai-config-updated'));
       window.dispatchEvent(new CustomEvent('hireflow-ai-config-updated'));
     }
   }

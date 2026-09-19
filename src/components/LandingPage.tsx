@@ -18,11 +18,15 @@ import {
 interface LandingPageProps {
   onStartOnboarding: () => void;
   onTrySampleCase: () => void;
+  onGoToDashboard?: () => void;
+  candidateCount?: number;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({
   onStartOnboarding,
-  onTrySampleCase
+  onTrySampleCase,
+  onGoToDashboard,
+  candidateCount = 0
 }) => {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
@@ -41,7 +45,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
         </div>
 
-        <nav className="flex items-center gap-4 text-xs">
+        <nav className="flex items-center gap-3 text-xs">
+          {candidateCount > 0 && onGoToDashboard && (
+            <button
+              onClick={onGoToDashboard}
+              className="px-3.5 py-1.5 font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
+              title="Return to active candidate workspace"
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Workspace ({candidateCount})</span>
+            </button>
+          )}
           <button 
             onClick={onTrySampleCase} 
             className="px-3 py-1.5 font-medium text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors"
@@ -78,9 +92,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
         {/* CTA Buttons */}
         <div className="mt-8 flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+          {candidateCount > 0 && onGoToDashboard && (
+            <button
+              onClick={onGoToDashboard}
+              className="w-full sm:w-auto px-6 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm shadow-sm hover:shadow transition-all flex items-center justify-center gap-2"
+            >
+              <Users className="w-4 h-4" />
+              <span>Resume Workspace ({candidateCount} Candidates)</span>
+            </button>
+          )}
+
           <button
             onClick={onStartOnboarding}
-            className="w-full sm:w-auto px-6 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm shadow-sm hover:shadow transition-all flex items-center justify-center gap-2"
+            className={`w-full sm:w-auto px-6 py-3 rounded-lg font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
+              candidateCount > 0 
+                ? 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 shadow-sm'
+                : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm hover:shadow'
+            }`}
           >
             <span>Open Role Blueprint Studio</span>
             <ArrowRight className="w-4 h-4" />
