@@ -1,24 +1,24 @@
-# TalentDossier â€” Autonomous AI Recruiter Agent
-> **Agentic AI Hackathon 2026 Submission**  
-> *From raw resume to hiring decision, autonomously â€” with humans in the loop at exactly the right moment.*
+# TalentDossier - Autonomous AI Recruiter Agent
+> **Agentic AI Hackathon 2026 Submission**
+> *From raw resume to hiring decision, autonomously - with humans in the loop at exactly the right moment.*
 
 [![Build](https://github.com/akshat-lakhera/hireflow-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/akshat-lakhera/hireflow-ai/actions/workflows/ci.yml)
 [![Deploy](https://github.com/akshat-lakhera/hireflow-ai/actions/workflows/deploy.yml/badge.svg)](https://github.com/akshat-lakhera/hireflow-ai/actions/workflows/deploy.yml)
 [![Release](https://img.shields.io/github/v/release/akshat-lakhera/hireflow-ai?color=6366f1&label=Release)](https://github.com/akshat-lakhera/hireflow-ai/releases/latest)
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-Vercel-black?logo=vercel)](https://agentic-ai-hackathon-seven.vercel.app)
 
-> 🌐 **Live Demo**: [https://agentic-ai-hackathon-seven.vercel.app](https://agentic-ai-hackathon-seven.vercel.app)
+> **Live Demo**: https://agentic-ai-hackathon-seven.vercel.app
 
 ---
 
 ## What Is This?
 
-**TalentDossier** is a fully autonomous AI recruiting agent that runs end-to-end â€” from the moment a candidate submits their resume to the moment an acceptance or rejection email lands in their inbox â€” with one human checkpoint in between.
+**TalentDossier** is a fully autonomous AI recruiting agent that runs end-to-end - from the moment a candidate submits their resume to the moment an acceptance or rejection email lands in their inbox - with one human checkpoint in between.
 
-It is **not a chatbot**. It does not wait for prompts. It runs a continuous **Perceive â†’ Plan â†’ Act** loop:
+It is **not a chatbot**. It does not wait for prompts. It runs a continuous **Perceive -> Plan -> Act** loop:
 - **Perceive**: Monitors an application portal queue for new submissions (LinkedIn, Greenhouse, Indeed, or a built-in career page)
 - **Plan**: Generates a dynamic DAG (Directed Acyclic Graph) execution plan for each batch of candidates
-- **Act**: Executes each plan step â€” embedding extraction, evidence triage, qualification scoring, status classification, and email drafting
+- **Act**: Executes each plan step - embedding extraction, evidence triage, qualification scoring, status classification, and email drafting
 - **Gate**: Stages all decisions in a Human Review Action Deck before any email fires
 
 This is the architecture described by the hackathon brief: *"An AI agent works independently in a continuous loop. It breaks down a big goal into smaller steps, checks its environment, and takes real-world actions."*
@@ -27,48 +27,119 @@ This is the architecture described by the hackathon brief: *"An AI agent works i
 
 ## See It in 60 Seconds
 
-**Step 1 â€” Clone and run:**
+**Option A - Live Demo (no setup):**
+> Open https://agentic-ai-hackathon-seven.vercel.app
+> - 2 demo candidates are pre-loaded (Liam Zhang + Priya Sharma)
+> - Go to **Autonomous Agent** -> **Activate Loop** -> **Simulate Portal Inflow**
+> - Watch the agent auto-process 3 candidates in real time
+
+**Option B - Run locally:**
 ```bash
 git clone https://github.com/akshat-lakhera/hireflow-ai.git
 cd hireflow-ai
 npm install
 npm run dev
+# Open http://localhost:5173
 ```
-Open `http://localhost:5173`
 
-**Step 2 â€” Define a role** (takes 30 seconds in the onboarding wizard â€” or skip, a default role is pre-loaded)
+---
 
-**Step 3 â€” Trigger the agent loop:**  
-Click **"Autonomous Agent"** in the top nav â†’ **"Activate Loop"** â†’ **"Simulate Portal Inflow"**
+## Setup Instructions
 
-Watch the agent perceive 3 candidates from LinkedIn/Greenhouse/Indeed, build a DAG plan, score each against your role blueprint, classify each one, draft emails, and stage them for your 1-click approval â€” all without you touching anything.
+### 1. Basic Setup (Zero Config - works immediately)
 
-**Step 4 â€” Review and approve** in the Human Review Action Deck. If SMTP credentials are configured, emails dispatch automatically. If not, the system surfaces an inline key capture modal â€” enter it, verify, send.
+```bash
+npm install
+npm run dev
+```
+
+The app runs fully offline with a built-in deterministic scoring engine. No API keys needed to see the full pipeline.
+
+---
+
+### 2. Enable Live AI Reasoning (Optional - Groq is free)
+
+1. Get a free API key from https://console.groq.com
+2. In the app: click the **AI model badge** in the top nav bar -> **AI Settings**
+3. Paste your Groq API key -> **Save**
+4. The agent now uses LLaMA-3.3-70B for real reasoning instead of the rule engine
+
+Alternatively: paste an **OpenAI** or **Google Gemini** key in the same settings panel.
+
+---
+
+### 3. Enable Real Email Dispatch (Optional - EmailJS is free)
+
+TalentDossier uses **EmailJS** to send real candidate emails directly from the browser - no backend server needed. Free tier: 200 emails/month.
+
+**Step-by-step:**
+
+1. **Create a free account** at https://emailjs.com
+
+2. **Add an Email Service:**
+   - Dashboard -> Email Services -> Add New Service -> Gmail
+   - Authorize with your Gmail account
+   - Copy the **Service ID** (looks like `service_xxxxxxx`)
+
+3. **Create an Email Template:**
+   - Dashboard -> Email Templates -> Create New Template
+   - Use these variable names in your template body:
+     ```
+     To: {{to_email}}
+     Subject: {{subject}}
+     Message: {{message}}
+     From name: {{from_name}}
+     ```
+   - Copy the **Template ID** (looks like `template_xxxxxxx`)
+
+4. **Get your Public Key:**
+   - Top-right menu -> Account -> API Keys
+   - Copy the **Public Key** (looks like `AbCdEfGhIjKlMnOpQr`)
+
+5. **Paste into TalentDossier:**
+   - In the app: top nav -> **Gmail Sync** icon (envelope)
+   - Fill in: Service ID, Template ID, Public Key
+   - Click **Test Connection** -> should show green checkmark
+   - Click **Save Changes**
+
+6. **That's it.** Next time you approve a candidate in the Human Review deck, the email fires in real time and appears in the Outbox log.
+
+---
+
+### 4. Enable Cloud Vector Storage (Optional - Supabase free tier)
+
+By default, candidates are stored in IndexedDB (browser local storage). To enable Supabase pgvector for cross-device sync:
+
+1. Create a project at https://supabase.com (free)
+2. Run the schema from `public/schema.sql` in the Supabase SQL editor
+3. In the app: **Database** panel -> paste your Supabase URL + Anon Key -> **Connect**
 
 ---
 
 ## The Agentic Architecture
 
 ```
-PERCEPTION LAYER              PLANNING LAYER              ACTION LAYER
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-PortalIngestionService    â†’   AgentLoopRuntime (DAG)   â†’  Tool Execution
-  â€¢ Career portal queue         â€¢ Dynamic plan per batch    â€¢ Candidate embedding
-  â€¢ Greenhouse webhook            STEP 1: ingest_portal     â€¢ Evidence triage
-  â€¢ Lever webhook                 STEP 2: extract_embed     â€¢ Score & classify
-  â€¢ LinkedIn Apply                STEP 3: triage_evidence   â€¢ Status update
-  â€¢ Indeed webhook                STEP 4: score_rank        â€¢ Email draft
-  â€¢ Event-driven (instant)        STEP 5: update_status   
-                                  STEP 6: draft_email     
-                                  STEP 7: human_gate  â”€â”€â†’  HUMAN CHECKPOINT
-                                                            (approve / reject / edit)
-                                                                   â”‚
-                                                          Email dispatch to candidate
-                                                          (SMTP-gated, real credentials)
+PERCEPTION LAYER            PLANNING LAYER             ACTION LAYER
+------------------------    --------------------------  --------------------------
+PortalIngestionService  ->  AgentLoopRuntime (DAG)  ->  Tool Execution
+  - Career portal queue       - Dynamic plan per batch    - Candidate embedding
+  - Greenhouse webhook          STEP 1: ingest_portal     - Evidence triage
+  - Lever webhook               STEP 2: extract_embed     - Score & classify
+  - LinkedIn Apply              STEP 3: triage_evidence   - Status update
+  - Indeed webhook              STEP 4: score_rank        - Email draft
+  - Event-driven (instant)      STEP 5: update_status
+                                STEP 6: draft_email
+                                STEP 7: human_gate  -->   HUMAN CHECKPOINT
+                                                          (approve / reject / edit)
+                                                                 |
+                                                        Email dispatched to candidate
+                                                        (via EmailJS, real send)
 ```
 
 ### ReAct Protocol (Reasoning + Acting)
-Every agent cycle logs its **Thought â†’ Action â†’ Observation** loop in real time to the Operations Center terminal:
+
+Every agent cycle logs its **Thought -> Action -> Observation** loop in real time:
+
 ```
 [THOUGHT]   3 new applications detected from portal queue (LinkedIn x2, Greenhouse x1)
 [ACTION]    run_plan_step: extract_embedding for "Liam Zhang"
@@ -76,49 +147,46 @@ Every agent cycle logs its **Thought â†’ Action â†’ Observation** loop
 [THOUGHT]   Similarity exceeds threshold (0.75). Proceeding to evidence triage.
 [ACTION]    run_plan_step: triage_evidence for "Liam Zhang"
 [OBSERVE]   4/5 must-have skills verified. 2 proof points. Gap: Paxos variants.
-[ACTION]    run_plan_step: score_rank â†’ 89% (Strong fit) â†’ Interview Ready
-[ACTION]    run_plan_step: draft_email â†’ Subject + body generated
-[ACTION]    human_gate â†’ staged for recruiter 1-click approval
+[ACTION]    run_plan_step: score_rank -> 89% (Strong fit) -> Interview Ready
+[ACTION]    run_plan_step: draft_email -> Subject + body generated
+[ACTION]    human_gate -> staged for recruiter 1-click approval
 ```
 
 ---
 
 ## Features
 
-### Autonomous Loop (Core Innovation)
-- **Continuous daemon**: Polls application queue every 10 seconds (configurable interval)
-- **Event-driven trigger**: Activates instantly on `portal_inflow` events â€” no polling lag when someone actually applies
-- **Persistent state**: Staged decisions, audit logs, and ReAct traces survive page refresh via localStorage
-- **Pause/resume**: Recruiter can pause the loop and manually step-cycle for debugging
+### Autonomous Loop
+- Continuous daemon polls queue every 10 seconds; event-driven trigger fires instantly on new submissions
+- Persistent state: staged decisions, audit logs, and ReAct traces survive page refresh
+- Pause/resume: recruiter can pause the loop and manually step-cycle for debugging
 
 ### Multi-Source Application Ingestion
-- **Built-in career portal** (`/apply` page inside the app) â€” candidates fill a form, agent detects and processes in <10s
-- **Webhook format support**: Greenhouse, Lever, LinkedIn Apply, Indeed structured payloads
-- **Simulated batch inflow**: Realistic 3-candidate demo batch from all four sources for instant demonstration
+- Built-in career portal (`/apply` page) - candidates fill a form, agent detects in <10s
+- Webhook format support: Greenhouse, Lever, LinkedIn Apply, Indeed
+- Simulated batch inflow: 3-candidate demo batch from all four sources for instant demo
 
-### AI Engine (Dual-Mode, No Vendor Lock-in)
-- **Frontier LLM**: Groq LLaMA-3.3 70B, Google Gemini 1.5 Flash, or OpenAI GPT-4o-mini â€” switchable at runtime
-- **Local deterministic fallback**: Rule-based scoring engine works with zero API keys â€” honest attribution, zero hallucination
-- Transparent in UI â€” the active engine name is shown on every evaluation result
+### AI Engine (Dual-Mode)
+- Frontier LLM: Groq LLaMA-3.3 70B, Google Gemini 1.5 Flash, or OpenAI GPT-4o-mini - switchable at runtime
+- Local deterministic fallback: rule-based scoring with zero API keys, zero hallucination
+- Active engine shown on every evaluation result
 
 ### Human-in-the-Loop Gate
-- Every agent decision stages in the **Human Review Action Deck** before any action fires
-- 1-click Approve or Dismiss per candidate
-- Batch approve all with a single button
-- Full email preview (subject + body) expandable inline before sending
-- **SMTP gate**: If no key, surfaces an inline credential capture modal with connection test. If recruiter still doesn't provide â€” "Email Not Sent" alert records the skipped communication with name + email
+- Every agent decision staged in the Human Review Action Deck before any action fires
+- 1-click Approve or Dismiss per candidate; batch approve all
+- Full email preview (subject + body) before sending
+- If no EmailJS key: inline credential capture modal with connection test
 
 ### Recruiter Workspace
-- **3-column IDE-style layout** with resizable, collapsible panels (drag handles, persisted widths)
-- **Candidate Executive Dossier**: Evidence map, interview probes, notes, full audit trail, original resume (PDF embed + text viewer with keyword highlight)
-- **Compare Matrix**: Side-by-side scoring for any 2 candidates; auto-closes if a candidate is rejected mid-session
-- **Recruiter AI Copilot**: Natural language with 7 executable workspace tools (compare, update status, open interview kit, add note, filter pipeline, re-evaluate with AI, etc.)
-- **Structured Interview Kit**: TTS reads questions aloud (without leaking rubrics), STT captures interviewer notes live
+- 3-column IDE-style layout with resizable, collapsible panels
+- Candidate Executive Dossier: evidence map, interview probes, notes, audit trail, PDF resume viewer
+- Compare Matrix: side-by-side scoring for any 2 candidates
+- Recruiter AI Copilot: natural language -> 7 executable workspace tools
+- Structured Interview Kit: TTS reads questions, STT captures answers live
 
 ### Storage
-- **IndexedDB** â€” in-browser vector store, zero config, works offline
-- **Supabase pgvector** â€” optional cloud sync with 384-dim semantic similarity search
-- Schema SQL in `public/schema.sql`
+- **IndexedDB** - in-browser vector store, zero config, works offline
+- **Supabase pgvector** - optional cloud sync with 384-dim semantic similarity search
 
 ---
 
@@ -127,34 +195,12 @@ Every agent cycle logs its **Thought â†’ Action â†’ Observation** loop
 | Layer | Technology |
 |---|---|
 | Frontend | React 19, TypeScript, Vite |
-| Agent Runtime | Custom ReAct loop + DAG planner â€” pure TypeScript, no framework |
+| Agent Runtime | Custom ReAct loop + DAG planner - pure TypeScript, no framework |
 | AI APIs | Groq, Google Gemini, OpenAI (all optional, switchable) |
 | Vector Store | IndexedDB (local) + Supabase pgvector (cloud) |
 | PDF Parsing | pdfjs-dist (client-side, no server) |
 | Speech | Web Speech API (browser-native TTS + STT) |
-| Email | GmailSyncService (SMTP App Password or SendGrid) |
-
----
-
-## Quick Start
-
-```bash
-git clone https://github.com/akshat-lakhera/hireflow-ai.git
-cd hireflow-ai
-npm install
-npm run dev
-# â†’ http://localhost:5173
-```
-
-**To enable live LLM reasoning (optional):**
-1. Click the status badge in the top nav â†’ AI Settings
-2. Paste a free [Groq API key](https://console.groq.com) â†’ Save
-
-**To enable real email dispatch (optional):**
-1. Settings â†’ Gmail Candidate Sync
-2. Enter Gmail App Password (16-char) â†’ Test Connection â†’ Save
-
-The app is fully functional with zero API keys using the built-in deterministic engine.
+| Email | EmailJS (real browser-to-email, no backend needed) |
 
 ---
 
@@ -164,8 +210,8 @@ The app is fully functional with zero API keys using the built-in deterministic 
 |---|---|
 | **Project Name** | TalentDossier |
 | **Hackathon** | Agentic AI Hackathon 2026 |
-| **Repository** | [github.com/akshat-lakhera/hireflow-ai](https://github.com/akshat-lakhera/hireflow-ai) |
+| **Live Demo** | https://agentic-ai-hackathon-seven.vercel.app |
+| **Repository** | https://github.com/akshat-lakhera/hireflow-ai |
 | **Architecture** | ReAct Loop + Dynamic DAG Planner + Human Gate + Multi-Source Portal Ingestion |
-| **AI Models** | Groq LLaMA-3.3-70B Â· Google Gemini 1.5 Flash Â· OpenAI GPT-4o-mini |
+| **AI Models** | Groq LLaMA-3.3-70B, Google Gemini 1.5 Flash, OpenAI GPT-4o-mini |
 | **Built During** | 24-hour hackathon window |
-
