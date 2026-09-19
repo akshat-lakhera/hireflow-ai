@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CandidateCaseFile, RoleSetup, ReviewMode } from '../types';
 import { RolePanel } from './RolePanel';
 import { CandidateCaseFileCard } from './CandidateCaseFileCard';
@@ -17,7 +17,9 @@ import {
   SlidersHorizontal,
   FileText,
   Trash2,
-  Sparkles
+  Sparkles,
+  Layers,
+  Clock
 } from 'lucide-react';
 
 interface CaseBoardDashboardProps {
@@ -61,8 +63,17 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [badgeFilter, setBadgeFilter] = useState<'all' | 'Strong fit' | 'Needs validation' | 'High risk'>('all');
   const [comparingIds, setComparingIds] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [hasError, setHasError] = useState(false);
+  const [currentTime, setCurrentTime] = useState<string>('');
+
+  useEffect(() => {
+    const update = () => {
+      const now = new Date();
+      setCurrentTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    };
+    update();
+    const interval = setInterval(update, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Selected candidate object
   const selectedCandidate = candidates.find(c => c.id === selectedCandidateId) || candidates[0] || null;
@@ -85,11 +96,9 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
 
   // Filter candidates based on search & badge
   const filteredCandidates = candidates.filter(c => {
-    // Badge filter
     if (badgeFilter !== 'all' && c.fitBadge !== badgeFilter) {
       return false;
     }
-    // Search query
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const matchName = c.name.toLowerCase().includes(q);
@@ -101,44 +110,52 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
   });
 
   return (
-    <div className="min-h-screen bg-case-bg text-slate-200 flex flex-col font-sans">
+    <div className="min-h-screen bg-ink-950 text-slate-200 flex flex-col font-sans ambient-glow">
       
-      {/* Top Application Bar */}
-      <header className="w-full border-b border-case-border bg-case-bgAlt/90 backdrop-blur-md sticky top-0 z-30">
-        <div className="max-w-[1720px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+      {/* Top Command Bar */}
+      <header className="w-full border-b border-ink-border bg-ink-900/90 backdrop-blur-md sticky top-0 z-30">
+        <div className="max-w-[1800px] mx-auto px-6 sm:px-8 h-18 flex items-center justify-between gap-4">
           
-          {/* Logo & Role Pill */}
-          <div className="flex items-center gap-3">
+          {/* Logo & Active Role Spec Pill */}
+          <div className="flex items-center gap-4">
             <button 
               onClick={onBackToLanding}
-              className="flex items-center gap-2.5 hover:opacity-90 transition-opacity"
+              className="flex items-center gap-3 hover:opacity-90 transition-opacity"
               title="Return to Overview"
             >
-              <div className="w-8 h-8 rounded-lg bg-accent-blue/15 border border-accent-blue/30 flex items-center justify-center text-accent-blue font-bold text-sm">
+              <div className="w-9 h-9 rounded-xl bg-gold-glow border border-gold-border flex items-center justify-center text-gold-500 font-bold text-sm shadow-md">
                 HF
               </div>
-              <span className="font-bold text-base tracking-tight text-white hidden sm:inline">
-                HireFlow
-              </span>
+              <div className="text-left hidden sm:block">
+                <span className="font-extrabold text-base tracking-tight text-white block leading-none">
+                  HireFlow
+                </span>
+                <span className="text-[10px] font-mono text-gold-400 leading-none">
+                  Investigation Room
+                </span>
+              </div>
             </button>
 
-            <span className="text-slate-600">/</span>
+            <span className="text-slate-700 hidden sm:inline">/</span>
 
-            <div className="flex items-center gap-2 bg-case-surface px-2.5 py-1 rounded-lg border border-case-border text-xs font-mono">
-              <FolderLock className="w-3.5 h-3.5 text-accent-blue" />
-              <span className="text-slate-300 font-medium truncate max-w-[200px] sm:max-w-xs">
+            <div className="flex items-center gap-2.5 bg-ink-850 px-3 py-1.5 rounded-xl border border-ink-border text-xs font-mono">
+              <FolderLock className="w-3.5 h-3.5 text-gold-500" />
+              <span className="text-slate-200 font-semibold truncate max-w-[200px] md:max-w-xs">
                 {role.title}
+              </span>
+              <span className="px-2 py-0.5 rounded bg-ink-950 text-gold-400 text-[10px] font-bold">
+                {role.seniority}
               </span>
             </div>
           </div>
 
-          {/* Center Mode Switcher */}
-          <div className="hidden md:flex items-center p-1 rounded-xl bg-case-surface border border-case-border text-xs font-mono">
+          {/* Center Persona Switcher */}
+          <div className="hidden md:flex items-center p-1 rounded-xl bg-ink-850 border border-ink-border text-xs font-mono">
             <button
               onClick={() => onSetReviewMode('recruiter')}
-              className={`px-3 py-1 rounded-lg transition-colors ${
+              className={`px-3.5 py-1.5 rounded-lg transition-colors ${
                 reviewMode === 'recruiter'
-                  ? 'bg-case-surfaceElevated text-white font-semibold shadow'
+                  ? 'bg-gold-500 text-ink-950 font-bold shadow'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
@@ -146,9 +163,9 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
             </button>
             <button
               onClick={() => onSetReviewMode('interviewer')}
-              className={`px-3 py-1 rounded-lg transition-colors ${
+              className={`px-3.5 py-1.5 rounded-lg transition-colors ${
                 reviewMode === 'interviewer'
-                  ? 'bg-case-surfaceElevated text-white font-semibold shadow'
+                  ? 'bg-gold-500 text-ink-950 font-bold shadow'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
@@ -156,9 +173,9 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
             </button>
             <button
               onClick={() => onSetReviewMode('team_review')}
-              className={`px-3 py-1 rounded-lg transition-colors ${
+              className={`px-3.5 py-1.5 rounded-lg transition-colors ${
                 reviewMode === 'team_review'
-                  ? 'bg-case-surfaceElevated text-white font-semibold shadow'
+                  ? 'bg-gold-500 text-ink-950 font-bold shadow'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
@@ -166,16 +183,23 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
             </button>
           </div>
 
-          {/* Right Action Bar */}
-          <div className="flex items-center gap-2">
+          {/* Right Action Terminal */}
+          <div className="flex items-center gap-2.5">
             
+            {currentTime && (
+              <div className="hidden xl:flex items-center gap-1.5 text-xs font-mono text-slate-500 px-2.5 py-1 rounded-lg bg-ink-900 border border-ink-border mr-1">
+                <Clock className="w-3.5 h-3.5 text-gold-500" />
+                <span>{currentTime}</span>
+              </div>
+            )}
+
             {comparingIds.length > 0 && (
               <button
                 onClick={() => {
                   const compCandidates = candidates.filter(c => comparingIds.includes(c.id));
                   if (compCandidates.length >= 2) onOpenCompare(compCandidates);
                 }}
-                className="px-3 py-1.5 rounded-lg bg-accent-violet/20 border border-accent-violet/40 text-accent-violet text-xs font-mono font-semibold flex items-center gap-1.5 animate-pulse"
+                className="px-3 py-2 rounded-xl bg-gold-subtle border border-gold-border text-gold-400 text-xs font-mono font-bold flex items-center gap-1.5 animate-pulse"
               >
                 <Scale className="w-3.5 h-3.5" />
                 <span>Compare ({comparingIds.length}/2)</span>
@@ -184,24 +208,24 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
 
             <button
               onClick={onOpenUpload}
-              className="px-3 py-1.5 rounded-lg bg-case-surface hover:bg-case-surfaceLight border border-case-border text-slate-200 text-xs font-medium transition-colors flex items-center gap-1.5"
+              className="px-4 py-2 rounded-xl bg-ink-850 hover:bg-ink-800 border border-ink-border text-slate-200 text-xs font-semibold transition-colors flex items-center gap-2"
             >
-              <UploadCloud className="w-3.5 h-3.5 text-accent-blue" />
+              <UploadCloud className="w-4 h-4 text-gold-500" />
               <span className="hidden sm:inline">Upload Candidate</span>
             </button>
 
             <button
               onClick={onOpenOnboarding}
-              className="px-3 py-1.5 rounded-lg bg-accent-blue hover:bg-accent-blueHover text-black text-xs font-semibold transition-colors flex items-center gap-1.5 shadow"
+              className="px-4 py-2 rounded-xl bg-gold-500 hover:bg-gold-400 text-ink-950 text-xs font-extrabold transition-colors flex items-center gap-1.5 shadow-md"
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Role Setup</span>
+              <Plus className="w-4 h-4" />
+              <span>Role Studio</span>
             </button>
 
             {candidates.length === 0 ? (
               <button
                 onClick={onLoadSingleDemoCase}
-                className="px-3 py-1.5 rounded-lg bg-case-surface hover:bg-case-surfaceLight border border-case-border text-accent-blue text-xs font-mono transition-colors"
+                className="px-3 py-2 rounded-xl bg-ink-850 hover:bg-ink-800 border border-ink-border text-gold-400 text-xs font-mono font-bold transition-colors"
                 title="Load 1 reference case to inspect"
               >
                 Demo Case
@@ -209,7 +233,7 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
             ) : (
               <button
                 onClick={onClearBoard}
-                className="p-1.5 rounded-lg bg-case-surface hover:bg-case-surfaceLight border border-case-border text-slate-400 hover:text-accent-red transition-colors"
+                className="p-2 rounded-xl bg-ink-850 hover:bg-ink-800 border border-ink-border text-slate-400 hover:text-flag-500 transition-colors"
                 title="Clear board (start completely fresh)"
               >
                 <Trash2 className="w-4 h-4" />
@@ -221,8 +245,8 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
         </div>
       </header>
 
-      {/* Main Investigation Room: 3 Columns */}
-      <main className="flex-1 max-w-[1720px] mx-auto w-full p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      {/* Main Full-Screen Deck: 3 Columns */}
+      <main className="flex-1 max-w-[1800px] mx-auto w-full p-6 sm:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
         {/* COLUMN 1 (3 cols): Role Panel */}
         <aside className="lg:col-span-3 space-y-4">
@@ -238,12 +262,12 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
         <section className="lg:col-span-5 space-y-4">
           
           {/* Middle Column Header & Filters */}
-          <div className="case-card rounded-xl p-4 border border-case-border space-y-3">
+          <div className="dossier-card rounded-2xl p-5 border border-ink-border space-y-3.5">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FolderLock className="w-4 h-4 text-accent-blue" />
-                <h2 className="font-bold text-sm text-white">Candidate Case Files</h2>
-                <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-case-bg border border-case-border text-slate-300">
+              <div className="flex items-center gap-2.5">
+                <FolderLock className="w-4 h-4 text-gold-500" />
+                <h2 className="font-extrabold text-sm text-white">Candidate Case Dossiers</h2>
+                <span className="font-mono text-xs px-2.5 py-0.5 rounded bg-ink-900 border border-ink-border text-gold-400 font-bold">
                   {filteredCandidates.length}
                 </span>
               </div>
@@ -252,102 +276,68 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
               <div className="flex items-center gap-1 text-[11px] font-mono">
                 <button
                   onClick={() => setBadgeFilter('all')}
-                  className={`px-2 py-0.5 rounded ${badgeFilter === 'all' ? 'bg-case-surfaceElevated text-white font-semibold' : 'text-slate-400'}`}
+                  className={`px-2.5 py-1 rounded-lg ${badgeFilter === 'all' ? 'bg-gold-500 text-ink-950 font-bold' : 'text-slate-400'}`}
                 >
                   All
                 </button>
                 <button
                   onClick={() => setBadgeFilter('Strong fit')}
-                  className={`px-2 py-0.5 rounded ${badgeFilter === 'Strong fit' ? 'bg-accent-green/20 text-accent-green font-semibold' : 'text-slate-400'}`}
+                  className={`px-2.5 py-1 rounded-lg ${badgeFilter === 'Strong fit' ? 'bg-verified-subtle text-verified-400 font-bold border border-verified-border' : 'text-slate-400'}`}
                 >
                   Strong
                 </button>
                 <button
                   onClick={() => setBadgeFilter('Needs validation')}
-                  className={`px-2 py-0.5 rounded ${badgeFilter === 'Needs validation' ? 'bg-accent-amber/20 text-accent-amber font-semibold' : 'text-slate-400'}`}
+                  className={`px-2.5 py-1 rounded-lg ${badgeFilter === 'Needs validation' ? 'bg-caution-subtle text-caution-500 font-bold border border-caution-border' : 'text-slate-400'}`}
                 >
                   Needs Val.
                 </button>
                 <button
                   onClick={() => setBadgeFilter('High risk')}
-                  className={`px-2 py-0.5 rounded ${badgeFilter === 'High risk' ? 'bg-accent-red/20 text-accent-red font-semibold' : 'text-slate-400'}`}
+                  className={`px-2.5 py-1 rounded-lg ${badgeFilter === 'High risk' ? 'bg-flag-subtle text-flag-500 font-bold border border-flag-border' : 'text-slate-400'}`}
                 >
                   Risk
                 </button>
               </div>
             </div>
 
-            {/* Natural Language / Keyword Search Input */}
+            {/* Keyword Search Input */}
             <div className="relative">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-500" />
+              <Search className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-500" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search candidates by name, skill, or experience..."
-                className="w-full bg-case-bg border border-case-border rounded-xl pl-9 pr-3 py-2 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-accent-blue"
+                placeholder="Search candidates by name, skill, or verified project..."
+                className="w-full bg-ink-900 border border-ink-border rounded-xl pl-10 pr-4 py-2.5 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-gold-500 font-mono"
               />
             </div>
           </div>
 
           {/* Candidate Cards List or States */}
-          {isLoading ? (
-            /* Loading State: Realistic Skeleton Screen */
-            <div className="space-y-3">
-              {[1, 2, 3].map(n => (
-                <div key={n} className="case-card rounded-xl p-4 border border-case-border animate-pulse space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-case-bg" />
-                      <div className="space-y-1.5">
-                        <div className="w-32 h-3.5 bg-case-bg rounded" />
-                        <div className="w-24 h-2.5 bg-case-bg rounded" />
-                      </div>
-                    </div>
-                    <div className="w-10 h-10 rounded-full bg-case-bg" />
-                  </div>
-                  <div className="w-full h-8 bg-case-bg rounded-lg" />
-                </div>
-              ))}
-            </div>
-          ) : hasError ? (
-            /* Error State: Soft Warning Panel */
-            <div className="case-card rounded-xl p-6 border border-accent-red/30 bg-accent-red/5 space-y-2 text-center text-xs">
-              <AlertTriangle className="w-8 h-8 text-accent-amber mx-auto mb-1" />
-              <h3 className="font-bold text-white text-sm">We could not parse one resume</h3>
-              <p className="text-slate-300 max-w-sm mx-auto">
-                Try another file or inspect the upload log. Supports PDF and text dossiers.
-              </p>
-              <button
-                onClick={() => setHasError(false)}
-                className="mt-3 px-3 py-1.5 bg-case-surface hover:bg-case-surfaceLight border border-case-border rounded-lg text-slate-200 font-mono"
-              >
-                Dismiss Warning
-              </button>
-            </div>
-          ) : filteredCandidates.length === 0 ? (
+          {filteredCandidates.length === 0 ? (
             /* Empty State: File Folder Illustration */
-            <div className="case-card rounded-2xl p-10 border border-case-border text-center space-y-4">
-              <div className="w-14 h-14 rounded-2xl bg-case-bg border border-case-border flex items-center justify-center mx-auto text-accent-blue shadow-inner">
-                <FolderOpen className="w-7 h-7" />
+            <div className="dossier-card rounded-3xl p-12 border border-ink-border text-center space-y-5 bg-ink-900/40">
+              <div className="w-16 h-16 rounded-2xl bg-ink-850 border border-ink-border flex items-center justify-center mx-auto text-gold-500 shadow-inner">
+                <FolderOpen className="w-8 h-8" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white">No candidates loaded yet</h3>
-                <p className="text-slate-400 text-xs mt-1 max-w-sm mx-auto">
-                  Upload a role to begin review, or try the 1 sample case.
+                <h3 className="text-lg font-extrabold text-white">No candidates loaded yet</h3>
+                <p className="text-slate-400 text-xs mt-1.5 max-w-sm mx-auto leading-relaxed">
+                  Upload candidate resumes for <strong className="text-white">{role.title}</strong>, or try the 1 sample case.
                 </p>
               </div>
-              <div className="flex items-center justify-center gap-3 pt-2">
+              <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
                 <button
                   onClick={onOpenUpload}
-                  className="px-5 py-2.5 rounded-xl bg-accent-blue hover:bg-accent-blueHover text-black font-semibold text-xs shadow transition-colors inline-flex items-center gap-2"
+                  className="px-6 py-3 rounded-xl bg-gold-500 hover:bg-gold-400 text-ink-950 font-bold text-xs shadow-lg transition-colors inline-flex items-center gap-2"
                 >
                   <UploadCloud className="w-4 h-4" />
                   <span>Upload Candidate Resumes</span>
                 </button>
                 <button
                   onClick={onLoadSingleDemoCase}
-                  className="px-4 py-2.5 rounded-xl bg-case-surface hover:bg-case-surfaceLight border border-case-border text-slate-200 font-medium text-xs transition-colors"
+                  className="px-5 py-3 rounded-xl bg-ink-850 hover:bg-ink-800 border border-ink-border text-slate-200 font-semibold text-xs transition-colors"
                 >
                   Try 1 Demo Case
                 </button>
@@ -355,7 +345,7 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
             </div>
           ) : (
             /* Scrollable Real Candidate Cards */
-            <div className="space-y-3 max-h-[calc(100vh-14rem)] overflow-y-auto pr-1">
+            <div className="space-y-4 max-h-[calc(100vh-14rem)] overflow-y-auto pr-1">
               {filteredCandidates.map(candidate => (
                 <CandidateCaseFileCard
                   key={candidate.id}

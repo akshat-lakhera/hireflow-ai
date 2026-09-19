@@ -14,7 +14,8 @@ import {
   ChevronRight, 
   GitFork, 
   Save,
-  Check
+  Check,
+  Sparkles
 } from 'lucide-react';
 
 interface InterviewKitModalProps {
@@ -45,7 +46,6 @@ export const InterviewKitModal: React.FC<InterviewKitModalProps> = ({
   const [isPlayingTTS, setIsPlayingTTS] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  // When user switches question
   const handleSelectQuestion = (q: InterviewKitQuestion) => {
     setActiveQuestionId(q.id);
     setCandidateAnswer(q.candidateAnswer || '');
@@ -54,7 +54,6 @@ export const InterviewKitModal: React.FC<InterviewKitModalProps> = ({
     setIsPlayingTTS(false);
   };
 
-  // Toggle Live Speech-to-text
   const toggleRecording = () => {
     if (isRecording) {
       AudioService.stopListening();
@@ -78,7 +77,6 @@ export const InterviewKitModal: React.FC<InterviewKitModalProps> = ({
     }
   };
 
-  // Text to Speech
   const toggleTTS = () => {
     if (isPlayingTTS) {
       AudioService.cancelSpeech();
@@ -91,7 +89,6 @@ export const InterviewKitModal: React.FC<InterviewKitModalProps> = ({
     }
   };
 
-  // Save answer
   const handleSaveAnswer = () => {
     if (activeQuestion) {
       onUpdateQuestionAnswer(candidate.id, activeQuestion.id, candidateAnswer);
@@ -103,35 +100,35 @@ export const InterviewKitModal: React.FC<InterviewKitModalProps> = ({
   const getSeverityStyle = (severity: QuestionSeverity) => {
     switch (severity) {
       case 'Deep dive':
-        return 'bg-accent-blue/15 text-accent-blue border-accent-blue/30';
+        return 'bg-gold-subtle text-gold-400 border-gold-border';
       case 'Validate':
-        return 'bg-accent-amber/15 text-accent-amber border-accent-amber/30';
+        return 'bg-caution-subtle text-caution-500 border-caution-border';
       case 'Clarify':
-        return 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30';
+        return 'bg-verified-subtle text-verified-400 border-verified-border';
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-sm overflow-y-auto font-sans">
-      <div className="case-card rounded-2xl w-full max-w-6xl max-h-[94vh] flex flex-col shadow-2xl border border-case-borderLight animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-8 bg-black/90 backdrop-blur-md overflow-y-auto font-sans">
+      <div className="dossier-card rounded-3xl w-full max-w-[1500px] h-[92vh] flex flex-col shadow-2xl border-2 border-gold-border/60 bg-ink-950 animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
         
-        {/* Top Strip: Candidate Summary */}
-        <div className="p-4 bg-case-bgAlt border-b border-case-border flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-case-surface border border-case-border flex items-center justify-center text-accent-blue font-mono font-bold text-sm">
+        {/* Top Strip */}
+        <div className="p-5 bg-ink-900 border-b border-ink-border flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-xl bg-ink-850 border border-ink-border flex items-center justify-center text-gold-400 font-mono font-bold text-sm shadow">
               {candidate.initials}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-mono text-[11px] text-accent-blue uppercase tracking-wider">
-                  INTERVIEW INTELLIGENCE KIT
+                <span className="font-mono text-xs text-gold-400 font-bold uppercase tracking-wider">
+                  TECHNICAL INTERVIEW THEATER
                 </span>
                 <span className="text-slate-600">•</span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-case-surfaceElevated border border-case-border text-slate-300">
+                <span className="text-[11px] font-mono px-2.5 py-0.5 rounded bg-ink-850 border border-ink-border text-slate-300">
                   {candidate.fitBadge}
                 </span>
               </div>
-              <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
+              <h2 className="text-xl font-extrabold text-white tracking-tight flex items-center gap-2 mt-0.5">
                 {candidate.name}
                 <span className="text-xs font-normal text-slate-400 font-mono">
                   ({candidate.currentRole})
@@ -141,17 +138,17 @@ export const InterviewKitModal: React.FC<InterviewKitModalProps> = ({
           </div>
 
           <div className="flex items-center gap-3 text-xs font-mono">
-            <div className="bg-case-surface px-3 py-1.5 rounded-xl border border-case-border flex items-center gap-2">
+            <div className="bg-ink-850 px-3.5 py-2 rounded-xl border border-ink-border flex items-center gap-2">
               <span className="text-slate-400">Match Score:</span>
-              <span className="text-base font-bold text-accent-green">{candidate.matchScore}%</span>
+              <span className="text-base font-extrabold text-verified-400">{candidate.matchScore}%</span>
             </div>
-            <div className="bg-case-surface px-3 py-1.5 rounded-xl border border-case-border flex items-center gap-2">
-              <span className="text-slate-400">Status:</span>
-              <span className="text-accent-blue font-bold">{candidate.reviewStatus}</span>
+            <div className="bg-ink-850 px-3.5 py-2 rounded-xl border border-ink-border flex items-center gap-2">
+              <span className="text-slate-400">Review Status:</span>
+              <span className="text-gold-400 font-bold">{candidate.reviewStatus}</span>
             </div>
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-lg bg-case-surface hover:bg-case-surfaceLight border border-case-border flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+              className="w-9 h-9 rounded-xl bg-ink-850 hover:bg-ink-800 border border-ink-border flex items-center justify-center text-slate-400 hover:text-white transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
@@ -159,51 +156,51 @@ export const InterviewKitModal: React.FC<InterviewKitModalProps> = ({
         </div>
 
         {/* Main Body: 3 Columns */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 flex-1 overflow-y-auto divide-y lg:divide-y-0 lg:divide-x divide-case-border bg-case-bg text-xs">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 flex-1 overflow-y-auto divide-y lg:divide-y-0 lg:divide-x divide-ink-border bg-ink-950 text-xs">
           
-          {/* LEFT (4 cols): Suggested Questions List */}
-          <div className="lg:col-span-4 p-5 overflow-y-auto space-y-3 bg-case-bgAlt/40">
-            <div className="flex items-center justify-between font-mono text-[11px] text-slate-400 uppercase tracking-wider pb-1">
-              <div className="flex items-center gap-1.5">
-                <MessageSquare className="w-3.5 h-3.5 text-accent-blue" />
-                <span>Suggested Questions ({candidate.interviewQuestions.length})</span>
+          {/* LEFT (4 cols): Questions List */}
+          <div className="lg:col-span-4 p-6 overflow-y-auto space-y-3.5 bg-ink-900/40">
+            <div className="flex items-center justify-between font-mono text-xs text-slate-300 uppercase tracking-wider font-bold pb-1">
+              <div className="flex items-center gap-2 text-gold-400">
+                <MessageSquare className="w-4 h-4 text-gold-500" />
+                <span>Probe List ({candidate.interviewQuestions.length})</span>
               </div>
             </div>
 
-            <div className="space-y-2.5">
+            <div className="space-y-3">
               {candidate.interviewQuestions.map((q, idx) => {
                 const isSelected = q.id === activeQuestion?.id;
                 return (
                   <div
                     key={q.id}
                     onClick={() => handleSelectQuestion(q)}
-                    className={`p-3.5 rounded-xl border transition-all cursor-pointer space-y-2 ${
+                    className={`p-4 rounded-2xl border transition-all cursor-pointer space-y-2.5 ${
                       isSelected
-                        ? 'bg-case-surfaceElevated border-accent-blue ring-1 ring-accent-blue/50'
-                        : 'bg-case-surface border-case-border hover:border-slate-600'
+                        ? 'bg-ink-850 border-gold-500 ring-2 ring-gold-500/40 shadow-xl'
+                        : 'bg-ink-900 border-ink-border hover:border-slate-600'
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-mono text-[10px] text-slate-400 uppercase">
-                        Question #{idx + 1}
+                      <span className="font-mono text-[10px] text-slate-400 uppercase font-bold">
+                        Probe #{idx + 1}
                       </span>
-                      <span className={`px-2 py-0.5 rounded font-mono text-[10px] font-semibold border ${getSeverityStyle(q.severityTag)}`}>
+                      <span className={`px-2.5 py-0.5 rounded-lg font-mono text-[10px] font-bold border ${getSeverityStyle(q.severityTag)}`}>
                         {q.severityTag}
                       </span>
                     </div>
 
-                    <div className="text-[10px] font-mono text-accent-blue truncate">
+                    <div className="text-[11px] font-mono text-gold-400 font-semibold truncate">
                       {q.targetRequirement}
                     </div>
 
-                    <p className={`text-[11px] leading-snug line-clamp-2 ${isSelected ? 'text-white font-medium' : 'text-slate-300'}`}>
+                    <p className={`text-xs leading-relaxed line-clamp-2 ${isSelected ? 'text-white font-medium' : 'text-slate-300'}`}>
                       "{q.questionText}"
                     </p>
 
                     {q.candidateAnswer && (
-                      <div className="text-[10px] font-mono text-accent-green flex items-center gap-1 pt-1">
-                        <CheckCircle2 className="w-3 h-3" />
-                        <span>Answer recorded</span>
+                      <div className="text-[11px] font-mono text-verified-400 flex items-center gap-1.5 pt-1 font-semibold">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Response Transcribed</span>
                       </div>
                     )}
                   </div>
@@ -212,35 +209,35 @@ export const InterviewKitModal: React.FC<InterviewKitModalProps> = ({
             </div>
           </div>
 
-          {/* MIDDLE (5 cols): Follow-Up Tree & Interactive Answer Space */}
-          <div className="lg:col-span-5 p-5 overflow-y-auto space-y-5">
+          {/* MIDDLE (5 cols): Follow-Up Tree & Interactive Workspace */}
+          <div className="lg:col-span-5 p-6 overflow-y-auto space-y-6">
             {activeQuestion ? (
               <>
                 {/* Active Question Focus Header */}
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-[10px] text-slate-400 uppercase tracking-wider">
-                      Target Requirement: <strong className="text-white">{activeQuestion.targetRequirement}</strong>
+                    <span className="font-mono text-xs text-slate-400 uppercase tracking-wider">
+                      Targeted Requirement: <strong className="text-white">{activeQuestion.targetRequirement}</strong>
                     </span>
-                    <span className={`px-2 py-0.5 rounded font-mono text-[10px] font-semibold border ${getSeverityStyle(activeQuestion.severityTag)}`}>
+                    <span className={`px-2.5 py-0.5 rounded-lg font-mono text-xs font-bold border ${getSeverityStyle(activeQuestion.severityTag)}`}>
                       {activeQuestion.severityTag}
                     </span>
                   </div>
 
                   {/* Primary Question Box */}
-                  <div className="p-4 rounded-xl bg-case-surface border border-case-border space-y-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <p className="text-sm font-semibold text-white leading-relaxed">
+                  <div className="p-5 rounded-2xl bg-ink-850 border border-ink-border space-y-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <p className="text-base font-bold text-white leading-relaxed">
                         "{activeQuestion.questionText}"
                       </p>
                       <button
                         onClick={toggleTTS}
-                        className={`p-2 rounded-lg border transition-colors flex-shrink-0 ${
+                        className={`p-2.5 rounded-xl border transition-colors flex-shrink-0 ${
                           isPlayingTTS 
-                            ? 'bg-accent-blue text-black border-accent-blue' 
-                            : 'bg-case-bg border-case-border text-slate-300 hover:text-white'
+                            ? 'bg-gold-500 text-ink-950 border-gold-400 font-bold' 
+                            : 'bg-ink-900 border-ink-border text-slate-300 hover:text-white'
                         }`}
-                        title="Read question aloud via Speech Synthesis"
+                        title="Voice Readout"
                       >
                         {isPlayingTTS ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
                       </button>
@@ -249,11 +246,11 @@ export const InterviewKitModal: React.FC<InterviewKitModalProps> = ({
                 </div>
 
                 {/* Follow-up Tree Branch */}
-                <div className="p-4 rounded-xl bg-case-surfaceElevated border border-case-border space-y-2 relative pl-6">
-                  <div className="absolute left-2.5 top-5 bottom-5 w-0.5 bg-accent-blue/40" />
-                  <div className="flex items-center gap-1.5 font-mono text-[11px] text-accent-blue">
-                    <GitFork className="w-3.5 h-3.5 rotate-180" />
-                    <span>FOLLOW-UP PROBE TREE</span>
+                <div className="p-5 rounded-2xl bg-gradient-to-r from-ink-850 to-ink-900 border border-ink-border space-y-2.5 relative pl-7">
+                  <div className="absolute left-3 top-6 bottom-6 w-0.5 bg-gold-500/60" />
+                  <div className="flex items-center gap-2 font-mono text-xs text-gold-400 font-bold">
+                    <GitFork className="w-4 h-4 rotate-180" />
+                    <span>DEEP DIVE PROBE TREE</span>
                   </div>
                   <p className="text-xs text-slate-200 leading-relaxed font-mono">
                     {activeQuestion.followUpProbe}
@@ -261,28 +258,28 @@ export const InterviewKitModal: React.FC<InterviewKitModalProps> = ({
                 </div>
 
                 {/* Candidate Answer Recording Area */}
-                <div className="space-y-2 pt-1">
+                <div className="space-y-3 pt-1">
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-[11px] text-slate-400 uppercase tracking-wider">
-                      Candidate Response / Evaluator Notes
+                    <span className="font-mono text-xs text-slate-400 uppercase tracking-wider font-bold">
+                      Live Candidate Transcript & Evaluator Notes
                     </span>
 
                     <button
                       onClick={toggleRecording}
-                      className={`px-2.5 py-1 rounded-lg border font-mono text-[11px] flex items-center gap-1.5 transition-colors ${
+                      className={`px-3 py-1.5 rounded-xl border font-mono text-xs font-bold flex items-center gap-2 transition-colors ${
                         isRecording 
-                          ? 'bg-accent-red/20 text-accent-red border-accent-red animate-pulse' 
-                          : 'bg-case-surface hover:bg-case-surfaceLight border-case-border text-slate-300'
+                          ? 'bg-flag-subtle text-flag-500 border-flag-border animate-pulse' 
+                          : 'bg-ink-850 hover:bg-ink-800 border-ink-border text-gold-400'
                       }`}
                     >
                       {isRecording ? (
                         <>
-                          <MicOff className="w-3.5 h-3.5" />
-                          <span>Stop Mic</span>
+                          <MicOff className="w-4 h-4" />
+                          <span>Stop Recording</span>
                         </>
                       ) : (
                         <>
-                          <Mic className="w-3.5 h-3.5 text-accent-blue" />
+                          <Mic className="w-4 h-4 text-gold-500" />
                           <span>Record via Mic</span>
                         </>
                       )}
@@ -293,27 +290,27 @@ export const InterviewKitModal: React.FC<InterviewKitModalProps> = ({
                     rows={4}
                     value={candidateAnswer}
                     onChange={e => setCandidateAnswer(e.target.value)}
-                    placeholder="Transcribe or type candidate answer, tradeoffs explained, and depth demonstrated..."
-                    className="w-full bg-case-bg border border-case-border rounded-xl p-3 text-white text-xs leading-relaxed focus:outline-none focus:border-accent-blue resize-none"
+                    placeholder="Speak into microphone or transcribe candidate's explanation, architectural tradeoffs, and performance benchmarks..."
+                    className="w-full bg-ink-900 border border-ink-border rounded-2xl p-4 text-white text-xs leading-relaxed focus:outline-none focus:border-gold-500 resize-none font-mono"
                   />
 
                   <div className="flex items-center justify-between pt-1">
-                    <span className="text-[10px] text-slate-500 font-mono">
-                      {candidateAnswer ? `${candidateAnswer.length} chars` : 'No response logged'}
+                    <span className="text-[11px] text-slate-500 font-mono">
+                      {candidateAnswer ? `${candidateAnswer.length} chars transcribed` : 'No response transcribed yet'}
                     </span>
                     <button
                       onClick={handleSaveAnswer}
-                      className="px-4 py-2 rounded-xl bg-accent-blue hover:bg-accent-blueHover text-black font-semibold text-xs flex items-center gap-1.5 transition-colors shadow"
+                      className="px-5 py-2.5 rounded-xl bg-gold-500 hover:bg-gold-400 text-ink-950 font-bold text-xs flex items-center gap-2 transition-colors shadow-lg"
                     >
                       {savedSuccess ? (
                         <>
-                          <Check className="w-3.5 h-3.5" />
-                          <span>Saved</span>
+                          <Check className="w-4 h-4" />
+                          <span>Saved to Dossier</span>
                         </>
                       ) : (
                         <>
-                          <Save className="w-3.5 h-3.5" />
-                          <span>Save to Case File</span>
+                          <Save className="w-4 h-4" />
+                          <span>Save Evaluation</span>
                         </>
                       )}
                     </button>
@@ -322,71 +319,65 @@ export const InterviewKitModal: React.FC<InterviewKitModalProps> = ({
               </>
             ) : (
               <div className="p-8 text-center text-slate-500">
-                Select a question on the left to begin probing.
+                Select a probe on the left to begin technical evaluation.
               </div>
             )}
           </div>
 
-          {/* RIGHT (3 cols): Concern List & Evidence Gaps */}
-          <div className="lg:col-span-3 p-5 overflow-y-auto space-y-5 bg-case-bgAlt/30">
+          {/* RIGHT (3 cols): Concern Focus & Outcome */}
+          <div className="lg:col-span-3 p-6 overflow-y-auto space-y-6 bg-ink-900/30">
             
-            {/* Concern List for Active Question */}
-            <div className="space-y-2.5">
-              <div className="flex items-center gap-1.5 font-mono text-[11px] text-accent-amber uppercase tracking-wider">
-                <AlertTriangle className="w-3.5 h-3.5" />
-                <span>Concern Focus</span>
+            {/* Concern List */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 font-mono text-xs text-caution-500 uppercase tracking-wider font-bold">
+                <AlertTriangle className="w-4 h-4" />
+                <span>Evaluator Warning Flag</span>
               </div>
-              <div className="p-3 rounded-xl bg-case-surface border border-case-border space-y-1">
-                <div className="font-bold text-white text-xs">Evaluator Warning</div>
-                <p className="text-[11px] text-slate-300 leading-snug">
-                  {activeQuestion?.concernNote || 'Verify candidate demonstrates hands-on production depth rather than standard tutorials.'}
+              <div className="p-4 rounded-2xl bg-ink-850 border border-ink-border space-y-1.5">
+                <div className="font-bold text-white text-xs">Probe Target</div>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  {activeQuestion?.concernNote || 'Verify candidate demonstrates hands-on implementation depth rather than framework abstraction.'}
                 </p>
               </div>
             </div>
 
-            {/* Missing Evidence Gaps */}
-            <div className="space-y-2.5">
-              <div className="flex items-center gap-1.5 font-mono text-[11px] text-slate-400 uppercase tracking-wider">
-                <ShieldAlert className="w-3.5 h-3.5 text-accent-red" />
+            {/* Unverified Gaps */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 font-mono text-xs text-slate-400 uppercase tracking-wider font-bold">
+                <ShieldAlert className="w-4 h-4 text-flag-500" />
                 <span>Unverified Gaps on File</span>
               </div>
               <div className="space-y-2">
                 {candidate.evidenceMap
                   .filter(ev => ev.status !== 'Verified')
                   .map((ev, i) => (
-                    <div key={i} className="p-2.5 rounded-lg bg-case-surface border border-case-border space-y-1 text-[11px]">
-                      <div className="font-semibold text-white">{ev.requirement}</div>
-                      <div className="text-slate-400 text-[10px] font-mono">{ev.snippet}</div>
+                    <div key={i} className="p-3 rounded-xl bg-ink-850 border border-ink-border space-y-1 text-xs">
+                      <div className="font-bold text-white">{ev.requirement}</div>
+                      <div className="text-slate-400 text-[11px] font-mono">{ev.snippet}</div>
                     </div>
                   ))}
               </div>
             </div>
 
             {/* Next Action Outcome */}
-            <div className="space-y-2.5 pt-2 border-t border-case-border">
-              <div className="font-mono text-[11px] text-slate-400 uppercase tracking-wider">
+            <div className="space-y-3 pt-3 border-t border-ink-border">
+              <div className="font-mono text-xs text-slate-400 uppercase tracking-wider font-bold">
                 Interview Verdict
               </div>
               <div className="space-y-2">
                 <button
                   onClick={() => onUpdateStatus(candidate.id, 'Interview Ready')}
-                  className="w-full py-2 px-3 rounded-xl bg-accent-green/20 hover:bg-accent-green/30 text-accent-green border border-accent-green/40 font-semibold text-xs transition-colors text-left flex items-center justify-between"
+                  className="w-full py-2.5 px-3.5 rounded-xl bg-verified-subtle hover:bg-verified-subtle/80 text-verified-400 border border-verified-border font-bold text-xs transition-colors text-left flex items-center justify-between"
                 >
                   <span>Pass Technical Probe</span>
-                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <CheckCircle2 className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => onUpdateStatus(candidate.id, 'Needs Validation')}
-                  className="w-full py-2 px-3 rounded-xl bg-accent-amber/20 hover:bg-accent-amber/30 text-accent-amber border border-accent-amber/40 font-semibold text-xs transition-colors text-left flex items-center justify-between"
+                  className="w-full py-2.5 px-3.5 rounded-xl bg-caution-subtle hover:bg-caution-subtle/80 text-caution-500 border border-caution-border font-bold text-xs transition-colors text-left flex items-center justify-between"
                 >
                   <span>Needs Follow-up Session</span>
-                  <AlertTriangle className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => onUpdateStatus(candidate.id, 'Decision Pending')}
-                  className="w-full py-2 px-3 rounded-xl bg-case-surface hover:bg-case-surfaceLight text-slate-300 border border-case-border text-xs transition-colors text-left"
-                >
-                  Mark Decision Pending
+                  <AlertTriangle className="w-4 h-4" />
                 </button>
               </div>
             </div>

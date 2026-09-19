@@ -10,7 +10,8 @@ import {
   Plus, 
   Trash2, 
   CheckCircle2, 
-  AlertTriangle 
+  AlertTriangle,
+  Sparkles
 } from 'lucide-react';
 
 interface UploadCandidateModalProps {
@@ -102,30 +103,35 @@ export const UploadCandidateModal: React.FC<UploadCandidateModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-sm overflow-y-auto font-sans text-xs">
-      <div className="case-card rounded-2xl w-full max-w-xl max-h-[90vh] flex flex-col shadow-2xl border border-case-borderLight animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8 bg-black/90 backdrop-blur-md overflow-y-auto font-sans text-xs">
+      <div className="dossier-card rounded-3xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl border-2 border-gold-border/60 bg-ink-950 animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
         
         {/* Header */}
-        <div className="p-4 bg-case-bgAlt border-b border-case-border flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <UploadCloud className="w-4 h-4 text-accent-blue" />
-            <h3 className="font-bold text-sm text-white">Upload Candidate Resumes</h3>
+        <div className="p-5 bg-ink-900 border-b border-ink-border flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-gold-glow border border-gold-border flex items-center justify-center text-gold-500">
+              <UploadCloud className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="font-extrabold text-sm text-white">Ingest Candidate Resumes</h3>
+              <p className="text-[11px] text-slate-400 font-mono">Evaluating against: {role.title}</p>
+            </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-case-surface hover:bg-case-surfaceLight border border-case-border flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+            className="w-8 h-8 rounded-lg bg-ink-850 hover:bg-ink-800 border border-ink-border flex items-center justify-center text-slate-400 hover:text-white transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Tab selector */}
-        <div className="flex border-b border-case-border bg-case-surface">
+        <div className="flex border-b border-ink-border bg-ink-900">
           <button
             onClick={() => setActiveTab('pdf')}
-            className={`flex-1 py-2.5 text-center font-mono text-xs font-semibold border-b-2 transition-colors ${
+            className={`flex-1 py-3 text-center font-mono text-xs font-bold border-b-2 transition-colors ${
               activeTab === 'pdf'
-                ? 'border-accent-blue text-accent-blue bg-case-surfaceElevated'
+                ? 'border-gold-500 text-gold-400 bg-ink-850'
                 : 'border-transparent text-slate-400 hover:text-white'
             }`}
           >
@@ -133,9 +139,9 @@ export const UploadCandidateModal: React.FC<UploadCandidateModalProps> = ({
           </button>
           <button
             onClick={() => setActiveTab('text')}
-            className={`flex-1 py-2.5 text-center font-mono text-xs font-semibold border-b-2 transition-colors ${
+            className={`flex-1 py-3 text-center font-mono text-xs font-bold border-b-2 transition-colors ${
               activeTab === 'text'
-                ? 'border-accent-blue text-accent-blue bg-case-surfaceElevated'
+                ? 'border-gold-500 text-gold-400 bg-ink-850'
                 : 'border-transparent text-slate-400 hover:text-white'
             }`}
           >
@@ -144,10 +150,10 @@ export const UploadCandidateModal: React.FC<UploadCandidateModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="p-5 space-y-4 overflow-y-auto flex-1 bg-case-bg">
+        <div className="p-6 space-y-5 overflow-y-auto flex-1 bg-ink-950">
           {activeTab === 'pdf' ? (
             <div className="space-y-4">
-              <div className="case-card rounded-xl p-6 border-2 border-dashed border-case-border hover:border-accent-blue/50 text-center transition-colors relative cursor-pointer">
+              <div className="dossier-card rounded-2xl p-8 border-2 border-dashed border-ink-border hover:border-gold-500/60 text-center transition-colors relative cursor-pointer group bg-ink-900/40">
                 <input
                   type="file"
                   multiple
@@ -155,25 +161,25 @@ export const UploadCandidateModal: React.FC<UploadCandidateModalProps> = ({
                   onChange={handleFileUpload}
                   className="absolute inset-0 opacity-0 cursor-pointer"
                 />
-                <UploadCloud className="w-8 h-8 text-accent-blue mx-auto mb-2" />
-                <div className="text-white font-semibold">Drop PDF resumes here or browse</div>
-                <p className="text-slate-400 text-[11px] mt-1">
-                  Supports PDF and text documents. Automatically evaluated against active JD.
+                <UploadCloud className="w-10 h-10 text-gold-500 mx-auto mb-2.5 group-hover:scale-105 transition-transform" />
+                <div className="text-white font-bold text-sm">Drop candidate PDF dossiers here or browse</div>
+                <p className="text-slate-400 text-xs mt-1">
+                  Supports PDF and documents. Automatic dynamic extraction against active role.
                 </p>
               </div>
 
               {files.length > 0 && (
                 <div className="space-y-2">
-                  <div className="font-mono text-[11px] text-slate-400">Ready to Ingest & Evaluate ({files.length}):</div>
-                  <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                  <div className="font-mono text-xs text-slate-400">Ready to Ingest ({files.length}):</div>
+                  <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
                     {files.map((f, i) => (
-                      <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-case-surface border border-case-border">
-                        <div className="flex items-center gap-2">
-                          <FileText className="w-3.5 h-3.5 text-accent-blue" />
-                          <span className="font-semibold text-white">{f.name}</span>
+                      <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-ink-850 border border-ink-border">
+                        <div className="flex items-center gap-2.5">
+                          <FileText className="w-4 h-4 text-gold-500" />
+                          <span className="font-bold text-white text-xs">{f.name}</span>
                         </div>
-                        <button onClick={() => handleRemoveFile(i)} className="text-slate-500 hover:text-accent-red">
-                          <Trash2 className="w-3.5 h-3.5" />
+                        <button onClick={() => handleRemoveFile(i)} className="text-slate-500 hover:text-flag-500 p-1">
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     ))}
@@ -182,38 +188,38 @@ export const UploadCandidateModal: React.FC<UploadCandidateModalProps> = ({
               )}
             </div>
           ) : (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Candidate Name</label>
+                  <label className="block text-slate-300 font-semibold mb-1 text-xs">Candidate Name</label>
                   <input
                     type="text"
                     value={candidateName}
                     onChange={e => setCandidateName(e.target.value)}
                     placeholder="e.g. Jordan Miller"
-                    className="w-full bg-case-surface border border-case-border rounded-lg p-2 text-white text-xs focus:outline-none"
+                    className="w-full bg-ink-900 border border-ink-border rounded-xl p-2.5 text-white text-xs focus:outline-none focus:border-gold-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Current Role (Optional)</label>
+                  <label className="block text-slate-300 font-semibold mb-1 text-xs">Current Role (Optional)</label>
                   <input
                     type="text"
                     value={candidateRole}
                     onChange={e => setCandidateRole(e.target.value)}
-                    placeholder="e.g. Staff Backend Engineer"
-                    className="w-full bg-case-surface border border-case-border rounded-lg p-2 text-white text-xs focus:outline-none"
+                    placeholder="e.g. Senior Backend Engineer"
+                    className="w-full bg-ink-900 border border-ink-border rounded-xl p-2.5 text-white text-xs focus:outline-none focus:border-gold-500"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Resume Content</label>
+                <label className="block text-slate-300 font-semibold mb-1 text-xs">Resume Content</label>
                 <textarea
                   rows={6}
                   value={resumeText}
                   onChange={e => setResumeText(e.target.value)}
                   placeholder="Paste candidate work experience, achievements, and technical stack..."
-                  className="w-full bg-case-surface border border-case-border rounded-lg p-2.5 text-white text-xs leading-relaxed focus:outline-none resize-none font-mono"
+                  className="w-full bg-ink-900 border border-ink-border rounded-xl p-3 text-white text-xs leading-relaxed focus:outline-none focus:border-gold-500 resize-none font-mono"
                 />
               </div>
             </div>
@@ -221,8 +227,8 @@ export const UploadCandidateModal: React.FC<UploadCandidateModalProps> = ({
 
           {/* Portfolio link */}
           <div>
-            <label className="block text-slate-300 font-semibold mb-1 flex items-center gap-1.5">
-              <LinkIcon className="w-3.5 h-3.5 text-slate-400" />
+            <label className="block text-slate-300 font-semibold mb-1 text-xs flex items-center gap-1.5">
+              <LinkIcon className="w-3.5 h-3.5 text-gold-500" />
               <span>Portfolio or GitHub Link (Optional)</span>
             </label>
             <input
@@ -230,16 +236,16 @@ export const UploadCandidateModal: React.FC<UploadCandidateModalProps> = ({
               value={portfolioUrl}
               onChange={e => setPortfolioUrl(e.target.value)}
               placeholder="https://github.com/candidate-repo"
-              className="w-full bg-case-surface border border-case-border rounded-lg p-2 text-white text-xs focus:outline-none"
+              className="w-full bg-ink-900 border border-ink-border rounded-xl p-2.5 text-white text-xs focus:outline-none focus:border-gold-500 font-mono"
             />
           </div>
         </div>
 
         {/* Footer */}
-        <div className="p-4 bg-case-bgAlt border-t border-case-border flex items-center justify-between">
+        <div className="p-5 bg-ink-900 border-t border-ink-border flex items-center justify-between">
           <button
             onClick={onClose}
-            className="px-3 py-1.5 rounded-lg bg-case-surface hover:bg-case-surfaceLight text-slate-300 border border-case-border"
+            className="px-4 py-2 rounded-xl bg-ink-850 hover:bg-ink-800 text-slate-300 border border-ink-border text-xs"
           >
             Cancel
           </button>
@@ -247,7 +253,7 @@ export const UploadCandidateModal: React.FC<UploadCandidateModalProps> = ({
           <button
             onClick={handleSubmit}
             disabled={activeTab === 'pdf' ? files.length === 0 : !resumeText.trim()}
-            className="px-5 py-2 rounded-xl bg-accent-blue hover:bg-accent-blueHover disabled:opacity-40 text-black font-semibold text-xs shadow transition-colors flex items-center gap-1.5"
+            className="px-6 py-2.5 rounded-xl bg-gold-500 hover:bg-gold-400 disabled:opacity-40 text-ink-950 font-bold text-xs shadow-lg transition-colors flex items-center gap-1.5"
           >
             <span>Evaluate & Ingest</span>
           </button>
