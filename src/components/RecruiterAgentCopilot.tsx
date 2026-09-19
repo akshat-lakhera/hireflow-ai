@@ -13,13 +13,7 @@ import {
   ArrowUpRight,
   AlertCircle,
   Zap,
-  CheckCircle2,
-  Check,
-  ChevronRight,
-  ExternalLink,
-  ShieldCheck,
-  Search,
-  Filter
+  Check
 } from 'lucide-react';
 
 export interface ExecutedActionReceipt {

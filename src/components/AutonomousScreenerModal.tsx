@@ -1,21 +1,15 @@
 import React, { useState } from 'react';
 import { CandidateCaseFile, RoleSetup } from '../types';
-import { AutonomousScreenerAgent, AutonomousScreeningResult, AgentActionLog } from '../services/autonomousScreenerAgent';
+import { AutonomousScreenerAgent, AutonomousScreeningResult } from '../services/autonomousScreenerAgent';
 import { 
   Zap, 
-  Sparkles, 
   CheckCircle2, 
-  AlertCircle, 
   XCircle, 
   Clock, 
-  ArrowRight, 
-  FileText, 
   Brain, 
   ShieldCheck, 
-  Layers, 
   Activity, 
   X, 
-  RotateCcw,
   Check,
   ChevronRight
 } from 'lucide-react';
