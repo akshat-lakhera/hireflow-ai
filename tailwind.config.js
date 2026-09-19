@@ -8,41 +8,23 @@ export default {
   theme: {
     extend: {
       colors: {
-        obsidian: {
-          950: '#080a0f',
-          900: '#0d1117',
-          850: '#121720',
-          800: '#171e2b',
-          700: '#20293a',
-          600: '#2c374d',
+        case: {
+          bg: '#0B1020',
+          bgAlt: '#0E1324',
+          surface: '#121A2E',
+          surfaceLight: '#162038',
+          surfaceElevated: '#1A2644',
           border: 'rgba(255, 255, 255, 0.08)',
-          'border-light': 'rgba(255, 255, 255, 0.16)',
-        },
-        // Anti-Slop Warm Champagne & Titanium Gold Palette (No generic purple)
-        gold: {
-          50: '#fffbeb',
-          100: '#fef3c7',
-          200: '#fde68a',
-          300: '#fcd34d',
-          400: '#fbbf24',
-          500: '#e5a93c',
-          DEFAULT: '#e5a93c',
-          600: '#d97706',
-          700: '#b45309',
-        },
-        steel: {
-          50: '#f8fafc',
-          100: '#f1f5f9',
-          400: '#94a3b8',
-          500: '#64748b',
-          600: '#475569',
-          700: '#334155',
+          borderSubtle: '#1D2844',
+          borderLight: '#263456',
         },
         accent: {
-          emerald: '#10b981',
-          rose: '#f43f5e',
-          amber: '#e5a93c',
-          cyan: '#38bdf8',
+          blue: '#4DA3FF',
+          blueHover: '#3B8FE6',
+          violet: '#8B7CFF', // focus states only
+          green: '#55D38A',  // verified / strong fit
+          amber: '#F4B860',  // warning / needs validation
+          red: '#E26D6D',    // risk / missing
         }
       },
       fontFamily: {

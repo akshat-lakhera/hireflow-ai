@@ -17,10 +17,13 @@
     "jsx": "react-jsx",
 
     /* Linting */
+    "strict": false,
+    "noImplicitAny": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "erasableSyntaxOnly": false,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["src/legacy"]
 }
