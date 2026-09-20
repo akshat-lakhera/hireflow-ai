@@ -19,7 +19,8 @@ import {
   Send,
   Download,
   Search,
-  Layers
+  Layers,
+  ShieldAlert
 } from 'lucide-react';
 import { AudioService } from '../services/audioService';
 
@@ -226,6 +227,28 @@ export const CandidateExecutiveDossier: React.FC<CandidateExecutiveDossierProps>
           </div>
 
         </div>
+
+        {/* Adversarial Prompt-Injection Quarantined Banner */}
+        {candidate.adversarialShieldTriggered && (
+          <div className="mt-4 p-3.5 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-3 text-left animate-in fade-in duration-300">
+            <div className="w-8 h-8 rounded-lg bg-rose-100 border border-rose-300 flex items-center justify-center text-rose-700 shrink-0 mt-0.5">
+              <ShieldAlert className="w-4 h-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <h4 className="text-xs font-bold text-rose-900 uppercase tracking-wide">
+                  Adversarial Prompt-Injection Quarantined
+                </h4>
+                <span className="text-[10px] font-mono bg-rose-200/80 text-rose-800 px-1.5 py-0.5 rounded font-bold">
+                  SECURITY SHIELD ACTIVE
+                </span>
+              </div>
+              <p className="text-xs text-rose-700 mt-1 leading-relaxed">
+                {candidate.securityAuditNote || 'Candidate submitted resume with covert instruction override directives. The attack was quarantined and neutralized. Candidate profile has been flagged for recruiter compliance review.'}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* 2. Structured Tabs System - Clean border alignment */}
         <div className="flex items-center border-b border-slate-200 mt-5 pt-1 space-x-4 sm:space-x-6 text-xs font-medium whitespace-nowrap overflow-x-auto">

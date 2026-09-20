@@ -107,6 +107,10 @@ export interface CandidateCaseFile {
   pdfDataUrl?: string;
   createdAt?: string;
   updatedAt?: string;
+
+  // Enterprise Security & Guardrail Telemetry
+  adversarialShieldTriggered?: boolean;
+  securityAuditNote?: string;
 }
 
 export type DatabaseMode = 'indexeddb_vector' | 'supabase_pgvector';

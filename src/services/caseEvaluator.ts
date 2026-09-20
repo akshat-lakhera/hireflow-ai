@@ -27,6 +27,33 @@ export class CaseEvaluator {
 
     const currentRole = data.headline || `${role.seniority} Candidate`;
 
+    // 0. Adversarial Prompt-Injection & Security Shield Scan
+    const rawToCheck = (data.rawText || '') + ' ' + (data.summary || '');
+    const injectionPatterns = [
+      /<!--\s*system[\s\S]*?-->/i,
+      /\[\s*(?:system override|critical override|jailbreak)[\s\S]*?\]/i,
+      /(?:system directive|system override|instruction override)[:\s]/i,
+      /ignore\s+(?:all\s+)?(?:previous|prior)\s+(?:instructions|rules|rubrics|guidelines)/i,
+      /disregard\s+(?:all\s+)?(?:instructions|rules|rubrics|guidelines)/i,
+      /assign\s+(?:this\s+candidate\s+)?(?:a\s+)?(?:matchscore|score|rating)\s+of\s+(?:100|99|98|95)/i,
+      /pre-?approved\s+by\s+(?:the\s+)?(?:board|ceo|cto|directors|executive)/i,
+      /targetstatus\s*[:=]\s*["']?(?:interview ready|offer extended)/i
+    ];
+
+    let adversarialShieldTriggered = false;
+    let securityAuditNote = '';
+    let matchedInjectionSnippet = '';
+
+    for (const pattern of injectionPatterns) {
+      const match = rawToCheck.match(pattern);
+      if (match) {
+        adversarialShieldTriggered = true;
+        matchedInjectionSnippet = match[0].trim();
+        securityAuditNote = `Adversarial instruction injection detected: "${matchedInjectionSnippet.slice(0, 80)}...". Quarantined by TalentDossier Security Shield.`;
+        break;
+      }
+    }
+
     // 1. Evidence Mapping against Role Requirements
     const evidenceMap: EvidenceItem[] = [];
     const matchedSkills: string[] = [];
@@ -223,6 +250,17 @@ export class CaseEvaluator {
 
     // 4. Generate Risk Flags
     const riskFlags: RiskFlag[] = [];
+
+    // Adversarial Security Flag (Critical)
+    if (adversarialShieldTriggered) {
+      riskFlags.push({
+        id: `rf-jailbreak-${Date.now()}`,
+        label: 'Adversarial Prompt-Injection Quarantined',
+        severity: 'critical',
+        details: securityAuditNote || 'Candidate submitted resume with covert instruction override directives. Neutralized by TalentDossier Adversarial Shield.'
+      });
+    }
+
     if (missingSkills.length >= 2) {
       riskFlags.push({
         id: `rf-gaps`,
@@ -264,6 +302,24 @@ export class CaseEvaluator {
       ? data.education
       : [{ degree: 'Technical Education & Certification', school: data.location || 'Verified', year: 'On record' }];
 
+    const auditTrailEntries: any[] = [
+      { 
+        id: `at-${Date.now()}`, 
+        action: 'Dossier Ingested & Evaluated', 
+        timestamp: 'Just now', 
+        note: `Extracted ${data.projects.length} real projects and ${data.skills.length} skills against ${role.title}.` 
+      }
+    ];
+
+    if (adversarialShieldTriggered) {
+      auditTrailEntries.unshift({
+        id: `at-sec-${Date.now()}`,
+        action: 'Adversarial Prompt-Injection Quarantined',
+        timestamp: 'Just now',
+        note: `Security Shield neutralized covert directive: "${matchedInjectionSnippet.slice(0, 60)}...". Routed to Human Review Deck.`
+      });
+    }
+
     return {
       id: `case-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       initials,
@@ -273,12 +329,12 @@ export class CaseEvaluator {
       location: data.location || 'Remote',
       email: data.email || undefined,
       phone: data.phone || undefined,
-      matchScore,
-      fitBadge,
+      matchScore: adversarialShieldTriggered ? Math.min(matchScore, 45) : matchScore,
+      fitBadge: adversarialShieldTriggered ? 'High risk' : fitBadge,
       matchedSkills: matchedSkills,
       missingSkills: missingSkills,
       proofLine,
-      reviewStatus: 'Under Review',
+      reviewStatus: adversarialShieldTriggered ? 'Needs Review' : 'Under Review',
       resumeSummary: data.summary || `${name} — ${currentRole}. Skills include ${data.skills.slice(0, 5).join(', ')}.`,
       education: formattedEducation,
       experiences: formattedExperiences,
@@ -289,17 +345,12 @@ export class CaseEvaluator {
       teamNotes: intakeNote ? [
         { id: `note-${Date.now()}`, author: 'Intake Screener', text: intakeNote, timestamp: 'Just now' }
       ] : [],
-      auditTrail: [
-        { 
-          id: `at-${Date.now()}`, 
-          action: 'Dossier Ingested & Evaluated', 
-          timestamp: 'Just now', 
-          note: `Extracted ${data.projects.length} real projects and ${data.skills.length} skills against ${role.title}.` 
-        }
-      ],
+      auditTrail: auditTrailEntries,
       embedding: data.embedding,
       rawText: data.rawText,
       pdfDataUrl: data.pdfDataUrl,
+      adversarialShieldTriggered,
+      securityAuditNote,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };

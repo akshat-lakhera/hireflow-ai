@@ -21,6 +21,7 @@ import { CareerPortalModal } from './components/CareerPortalModal';
 import { AgentLoopRuntime } from './services/agentLoopRuntime';
 import { AiService } from './services/aiApi';
 import { DatabaseService } from './services/databaseService';
+import { PortalIngestionService } from './services/portalIngestionService';
 
 interface ToastNotification {
   id: string;
@@ -497,6 +498,16 @@ export function App() {
     }
   };
 
+  const handleRunInstantDemo = () => {
+    // 1. Ingest 4 diverse candidates from external portals (including Marcus Vance adversarial injection test)
+    PortalIngestionService.simulatePortalInflowBatch(role);
+    // 2. Transition immediately to the active recruiter workspace
+    setView('dashboard');
+    // 3. Open the Autonomous Agent Operations Center so the judge immediately witnesses the live ReAct cycle!
+    setIsAgentOpsOpen(true);
+    showToast('⚡ Ingested 4 applicant profiles into agent perception loop (including adversarial injection test)', 'info');
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
       
@@ -505,6 +516,7 @@ export function App() {
         <LandingPage
           onStartOnboarding={handleStartOnboarding}
           onGoToDashboard={() => setView('dashboard')}
+          onRunInstantDemo={handleRunInstantDemo}
           candidateCount={candidates.length}
         />
       )}

@@ -22,10 +22,12 @@ import {
   Mail,
   Settings,
   Globe,
-  Radio
+  Radio,
+  ShieldAlert
 } from 'lucide-react';
 import { AiService } from '../services/aiApi';
 import { AgentLoopRuntime } from '../services/agentLoopRuntime';
+import { PortalIngestionService } from '../services/portalIngestionService';
 import { RecruiterAgentCopilot } from './RecruiterAgentCopilot';
 import { ResumeViewerModal } from './ResumeViewerModal';
 
@@ -332,6 +334,19 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
               <span>Compare ({selectedForCompare.length})</span>
             </button>
           )}
+
+          {/* Quick 1-Click Stream 4 Resumes Button */}
+          <button
+            onClick={() => {
+              PortalIngestionService.simulatePortalInflowBatch(role);
+              if (onOpenAgentOps) onOpenAgentOps();
+            }}
+            className="px-2.5 py-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
+            title="Stream 4 candidates (including an adversarial prompt injection attack) into the agent loop"
+          >
+            <Zap className="w-3.5 h-3.5 text-emerald-600 fill-emerald-500" />
+            <span className="hidden md:inline">Stream 4 Resumes</span>
+          </button>
 
           {/* Autonomous AI Agent Ops Center Button */}
           {onOpenAgentOps && (

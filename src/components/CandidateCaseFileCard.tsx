@@ -8,7 +8,8 @@ import {
   ArrowUpRight,
   Sparkles,
   Scale,
-  FileText
+  FileText,
+  ShieldAlert
 } from 'lucide-react';
 
 interface CandidateCaseFileCardProps {
@@ -126,6 +127,14 @@ export const CandidateCaseFileCard: React.FC<CandidateCaseFileCardProps> = ({
           </span>
         )}
       </div>
+
+      {/* Adversarial Shield Security Warning */}
+      {candidate.adversarialShieldTriggered && (
+        <div className="mt-2.5 px-2 py-1 rounded-md bg-rose-50 border border-rose-200 flex items-center gap-1.5 text-[11px] font-semibold text-rose-700">
+          <ShieldAlert className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+          <span className="truncate">Adversarial Jailbreak Quarantined</span>
+        </div>
+      )}
 
       {/* Card Footer: Status + Compare + Details Action */}
       <div className="mt-3.5 pt-2.5 border-t border-slate-100 flex items-center justify-between gap-1.5">
