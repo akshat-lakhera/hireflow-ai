@@ -371,18 +371,6 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
             </button>
           )}
 
-          {/* Public Candidate Career Portal Button */}
-          {onOpenCareerPortal && (
-            <button
-              onClick={onOpenCareerPortal}
-              className="px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
-              title="Open Public Candidate Career Portal (/apply)"
-            >
-              <Globe className="w-3.5 h-3.5 text-slate-500" />
-              <span className="hidden md:inline">Career Portal</span>
-            </button>
-          )}
-
           {/* Autonomous Screener Agent */}
           {onOpenAutonomousScreener && (
             <button
@@ -444,8 +432,8 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
                     >
                       <Globe className="w-4 h-4 text-indigo-600 shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-slate-800">Career Portal (/apply)</div>
-                        <div className="text-[10px] text-slate-400 truncate">Candidate application page</div>
+                        <div className="font-semibold text-slate-800">Public Application Link (/apply)</div>
+                        <div className="text-[10px] text-slate-400 truncate">Copy or share link with job applicants</div>
                       </div>
                     </button>
                   )}

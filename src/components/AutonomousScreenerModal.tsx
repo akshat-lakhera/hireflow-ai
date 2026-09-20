@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CandidateCaseFile, RoleSetup } from '../types';
 import { AutonomousScreenerAgent, AutonomousScreeningResult } from '../services/autonomousScreenerAgent';
 import { 
@@ -81,8 +81,26 @@ export const AutonomousScreenerModal: React.FC<AutonomousScreenerModalProps> = (
     return true;
   });
 
+  useEffect(() => {
+    if (!isOpen || isRunning) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isRunning, onClose]);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-200">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isRunning) {
+          onClose();
+        }
+      }}
+    >
       <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden">
         {/* Modal Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white">
@@ -105,9 +123,12 @@ export const AutonomousScreenerModal: React.FC<AutonomousScreenerModalProps> = (
           <button
             onClick={onClose}
             disabled={isRunning}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-40"
+            className="px-3 py-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/15 bg-white/10 border border-white/15 transition-colors disabled:opacity-40 cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
+            title="Close Screener (Esc)"
+            aria-label="Close Screener"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 text-slate-400 hover:text-white" />
+            <span>Close</span>
           </button>
         </div>
 

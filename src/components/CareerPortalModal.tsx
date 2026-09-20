@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { RoleSetup } from '../types';
 import { PortalIngestionService } from '../services/portalIngestionService';
 import { 
@@ -44,6 +44,17 @@ export const CareerPortalModal: React.FC<CareerPortalModalProps> = ({
   const [isReadingFile, setIsReadingFile] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [submittedSuccess, setSubmittedSuccess] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -123,7 +134,14 @@ export const CareerPortalModal: React.FC<CareerPortalModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-150">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-150"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
       <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[92vh]">
         
         {/* Header: Branded Career Page Style */}
@@ -145,7 +163,9 @@ export const CareerPortalModal: React.FC<CareerPortalModalProps> = ({
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            title="Close (Esc)"
+            aria-label="Close"
           >
             <X className="w-5 h-5" />
           </button>
