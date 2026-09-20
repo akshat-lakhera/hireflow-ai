@@ -38,6 +38,17 @@ export const AutonomousScreenerModal: React.FC<AutonomousScreenerModalProps> = (
   const [result, setResult] = useState<AutonomousScreeningResult | null>(null);
   const [selectedLogFilter, setSelectedLogFilter] = useState<'all' | 'interview' | 'review' | 'rejected'>('all');
 
+  useEffect(() => {
+    if (!isOpen || isRunning) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isRunning, onClose]);
+
   if (!isOpen) return null;
 
   const handleRunScreening = async () => {
@@ -81,16 +92,6 @@ export const AutonomousScreenerModal: React.FC<AutonomousScreenerModalProps> = (
     return true;
   });
 
-  useEffect(() => {
-    if (!isOpen || isRunning) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isRunning, onClose]);
 
   return (
     <div 
