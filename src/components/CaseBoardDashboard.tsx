@@ -306,23 +306,24 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
           </button>
         </div>
 
-        {/* Center: Sleek AI Status Badge */}
+        {/* Center: Slim AI Status Badge */}
         <div className="flex items-center">
           <button
             onClick={onOpenAiSettings}
-            className={`px-3 py-1 rounded-full text-xs font-medium border flex items-center gap-2 transition-all shadow-2xs cursor-pointer ${
+            className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer ${
               isAiActive
                 ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
-                : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200/60'
+                : 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
             }`}
-            title="Configure AI Engine & API Keys"
+            title={isAiActive ? 'AI Engine configured' : 'Click to add API key for full LLM reasoning'}
           >
-            <span className={`w-2 h-2 rounded-full ${isAiActive ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`} />
-            <span className="text-[11px] font-semibold">
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isAiActive ? 'bg-emerald-500 animate-pulse' : 'bg-indigo-400 animate-pulse'}`} />
+            <span className="hidden sm:inline">
               {isAiActive 
-                ? `${aiConfig.provider === 'groq' ? '⚡ Groq' : aiConfig.provider === 'gemini' ? 'Gemini' : 'OpenAI'} (${aiConfig.model})`
-                : '⚡ Local Engine (Add API Key)'}
+                ? `${aiConfig.provider === 'groq' ? 'Groq' : aiConfig.provider === 'gemini' ? 'Gemini' : 'OpenAI'}`
+                : '⚡ Local'}
             </span>
+            {!isAiActive && <span className="text-indigo-500 hidden md:inline">+ API Key</span>}
           </button>
         </div>
 
@@ -355,44 +356,46 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
           {onOpenAgentOps && (
             <button
               onClick={onOpenAgentOps}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer ${
+              className={`px-2.5 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer border ${
                 daemonActive
-                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100'
-                  : 'bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100'
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
               }`}
-              title="Autonomous AI Agent Operations Center (Continuous Loop, Inflow & Human Review Deck)"
+              title="Autonomous AI Agent Operations Center"
             >
               <Bot className="w-3.5 h-3.5 text-indigo-600" />
-              <span className="hidden sm:inline">Autonomous Agent</span>
+              <span className="hidden lg:inline">Agent Ops</span>
               {stagedCount > 0 ? (
                 <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-indigo-600 text-white animate-pulse">
                   {stagedCount}
                 </span>
               ) : daemonActive ? (
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               ) : null}
             </button>
           )}
 
-          {/* Autonomous Screener Agent */}
-          {onOpenAutonomousScreener && (
-            <button
-              onClick={onOpenAutonomousScreener}
-              className="px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
-              title="Run Autonomous Candidate Screener Agent (Multi-step pipeline evaluation & triage)"
-            >
-              <Zap className="w-3.5 h-3.5 fill-indigo-200" />
-              <span className="hidden sm:inline">Screen Pipeline</span>
-            </button>
-          )}
+          {/* Copilot Toggle Button */}
+          <button
+            onClick={() => setIsCopilotOpen(prev => !prev)}
+            className={`px-2.5 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer border ${
+              isCopilotOpen
+                ? 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700'
+                : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50'
+            }`}
+            title="Toggle Recruiter Agent Copilot"
+          >
+            <Bot className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Copilot</span>
+          </button>
 
           {/* Add Candidate */}
           <button
             onClick={onOpenUpload}
-            className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+            className="px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
           >
             <UploadCloud className="w-3.5 h-3.5 text-indigo-600" />
-            <span className="hidden sm:inline">Add Candidate</span>
+            <span className="hidden sm:inline">Add</span>
           </button>
 
           {/* Settings & System Integrations Menu */}
@@ -799,13 +802,6 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
           <span>Actions</span>
         </button>
 
-        <button
-          onClick={() => setIsCopilotOpen(true)}
-          className="flex flex-col items-center gap-1 py-1 px-3 rounded-lg text-[10px] font-semibold text-indigo-600 hover:bg-indigo-50 transition-colors"
-        >
-          <Bot className="w-4 h-4" />
-          <span>AI Copilot</span>
-        </button>
       </div>
 
       {/* In-App RAG Recruiter Agent Copilot Drawer */}
