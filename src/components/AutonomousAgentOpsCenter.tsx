@@ -59,7 +59,9 @@ export const AutonomousAgentOpsCenter: React.FC<AutonomousAgentOpsCenterProps> =
   const [activeGoal, setActiveGoal] = useState('');
   const [activePlan, setActivePlan] = useState<PlanDAG | null>(null);
   const [logs, setLogs] = useState<ReActLogEntry[]>([]);
-  const [stagedDecisions, setStagedDecisions] = useState<StagedDecision[]>([]);
+  const [stagedDecisions, setStagedDecisions] = useState<StagedDecision[]>(() => {
+    return AgentLoopRuntime.getState().stagedDecisions;
+  });
   const [cycleCount, setCycleCount] = useState(0);
   const [daemonActive, setDaemonActive] = useState(false);
   const [logFilter, setLogFilter] = useState<'all' | 'thought' | 'action' | 'human_gate'>('all');
@@ -487,6 +489,21 @@ export const AutonomousAgentOpsCenter: React.FC<AutonomousAgentOpsCenterProps> =
                           </span>
                         </div>
                       </div>
+
+                      {/* Adversarial Jailbreak Security Alert */}
+                      {c.adversarialShieldTriggered && (
+                        <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2">
+                          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                          <div className="min-w-0 flex-1">
+                            <div className="font-bold text-[11px] text-rose-900 flex items-center gap-1.5">
+                              <span>🛡️ Security Shield: Adversarial Jailbreak Quarantined</span>
+                            </div>
+                            <p className="text-[11px] text-rose-700 mt-0.5 leading-snug">
+                              {c.securityAuditNote || 'Covert system override directive detected and neutralized in resume submission.'}
+                            </p>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Agent Rationale */}
                       <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200/80 text-xs text-slate-700 space-y-1">

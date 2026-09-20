@@ -72,7 +72,7 @@ export class PortalIngestionService {
       // Update existing record
       all[existingIndex] = newRecord;
     } else {
-      all.unshift(newRecord);
+      all.push(newRecord);
     }
 
     try {

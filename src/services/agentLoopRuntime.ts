@@ -109,13 +109,24 @@ export class AgentLoopRuntime {
     }
 
     try {
-      const savedStaged = localStorage.getItem(STAGED_STORAGE_KEY);
-      if (savedStaged) {
-        this.stagedDecisions = JSON.parse(savedStaged);
+      // Only restore from localStorage if in-memory queue is currently empty
+      if (this.stagedDecisions.length === 0) {
+        const savedStaged = localStorage.getItem(STAGED_STORAGE_KEY);
+        if (savedStaged) {
+          const parsed = JSON.parse(savedStaged);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            this.stagedDecisions = parsed;
+          }
+        }
       }
-      const savedLogs = localStorage.getItem(LOGS_STORAGE_KEY);
-      if (savedLogs) {
-        this.logs = JSON.parse(savedLogs).slice(-100);
+      if (this.logs.length === 0) {
+        const savedLogs = localStorage.getItem(LOGS_STORAGE_KEY);
+        if (savedLogs) {
+          const parsed = JSON.parse(savedLogs);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            this.logs = parsed.slice(-100);
+          }
+        }
       }
     } catch {
       // ignore
@@ -169,10 +180,19 @@ export class AgentLoopRuntime {
     });
 
     try {
-      localStorage.setItem(STAGED_STORAGE_KEY, JSON.stringify(this.stagedDecisions));
+      // Sanitize staged decisions for localStorage to prevent quota overflow
+      const safeStaged = this.stagedDecisions.map(d => ({
+        ...d,
+        candidate: {
+          ...d.candidate,
+          embedding: undefined,
+          rawText: d.candidate.rawText ? d.candidate.rawText.slice(0, 500) : undefined
+        }
+      }));
+      localStorage.setItem(STAGED_STORAGE_KEY, JSON.stringify(safeStaged));
       localStorage.setItem(LOGS_STORAGE_KEY, JSON.stringify(this.logs.slice(-80)));
-    } catch {
-      // ignore
+    } catch (e) {
+      console.warn('LocalStorage telemetry cache notice:', e);
     }
   }
 
@@ -353,6 +373,7 @@ export class AgentLoopRuntime {
       this.status = 'executing_tools';
 
       // --- Task 1: Document Parsing ---
+      let parsedResume: any = null;
       await this.runPlanTask(0, async () => {
         this.appendLog('thought', `Calling tool_pdf_document_ocr to extract structured data from ${app.candidateName}'s resume...`);
         const parsed = parseStructuredResume(
@@ -364,6 +385,8 @@ export class AgentLoopRuntime {
         if (!parsed.email && app.email) parsed.email = app.email;
         if (!parsed.phone && app.phone) parsed.phone = app.phone;
         if (!parsed.location && app.location) parsed.location = app.location;
+
+        parsedResume = parsed;
 
         this.appendLog(
           'action',
@@ -380,13 +403,12 @@ export class AgentLoopRuntime {
         return parsed;
       });
 
-      const parsedResume = this.activePlan.tasks[0].outputSummary as any;
-
       // --- Task 2: Grounded Evidence Cross-Referencing ---
+      let evaluatedCase: CandidateCaseFile | null = null;
       await this.runPlanTask(1, async () => {
         this.appendLog('thought', `Calling tool_evidence_crossref to map evidence against must-have skills (${role.mustHaveSkills.join(', ')})...`);
         
-        const evaluatedCase = CaseEvaluator.evaluate(
+        evaluatedCase = CaseEvaluator.evaluate(
           parsedResume || app.rawResumeText,
           role,
           app.candidateName,
@@ -412,9 +434,9 @@ export class AgentLoopRuntime {
         return evaluatedCase;
       });
 
-      let evaluatedCase: CandidateCaseFile = (this.activePlan.tasks[1] as any).evaluatedCaseObj || 
-        CaseEvaluator.evaluate(app.rawResumeText, role, app.candidateName);
-      evaluatedCase.email = app.email || evaluatedCase.email;
+      if (!evaluatedCase) {
+        evaluatedCase = CaseEvaluator.evaluate(app.rawResumeText, role, app.candidateName);
+      }
 
       // --- Optional Task 3: Live LLM Reasoning ---
       let nextIndex = 2;
@@ -423,20 +445,22 @@ export class AgentLoopRuntime {
           this.appendLog('thought', `Calling tool_llm_reasoning to evaluate nuanced fit via live AI engine...`);
           try {
             const aiRes = await AiService.evaluateWithLLM(app.rawResumeText, role);
-            evaluatedCase.matchScore = aiRes.matchScore;
-            evaluatedCase.fitBadge = aiRes.fitBadge as any;
-            if (aiRes.evidenceMap?.length) evaluatedCase.evidenceMap = aiRes.evidenceMap;
-            if (aiRes.riskFlags?.length) evaluatedCase.riskFlags = aiRes.riskFlags;
+            if (!evaluatedCase!.adversarialShieldTriggered) {
+              evaluatedCase!.matchScore = aiRes.matchScore;
+              evaluatedCase!.fitBadge = aiRes.fitBadge as any;
+            }
+            if (aiRes.evidenceMap?.length) evaluatedCase!.evidenceMap = aiRes.evidenceMap;
+            if (aiRes.riskFlags?.length) evaluatedCase!.riskFlags = aiRes.riskFlags;
             
             this.appendLog(
               'action',
-              `Live AI deliberation complete: Match Score: ${aiRes.matchScore}%, Fit: ${aiRes.fitBadge}.`,
+              `Live AI deliberation complete: Match Score: ${evaluatedCase!.matchScore}%, Fit: ${evaluatedCase!.fitBadge}.`,
               'tool_llm_reasoning',
               { provider: AiService.getConfig().provider },
-              { score: aiRes.matchScore, flags: aiRes.riskFlags.map(f => f.label) }
+              { score: evaluatedCase!.matchScore, flags: evaluatedCase!.riskFlags.map(f => f.label) }
             );
           } catch (err: any) {
-            this.appendLog('observation', `AI reasoning notice: falling back to deterministic score (${evaluatedCase.matchScore}%).`);
+            this.appendLog('observation', `AI reasoning notice: falling back to deterministic score (${evaluatedCase!.matchScore}%).`);
           }
           return evaluatedCase;
         });
@@ -448,26 +472,29 @@ export class AgentLoopRuntime {
       let decisionRationale = '';
 
       await this.runPlanTask(nextIndex, async () => {
-        this.appendLog('thought', `Calling tool_eval_matrix to synthesize match score (${evaluatedCase.matchScore}%) into recommended status...`);
+        this.appendLog('thought', `Calling tool_eval_matrix to synthesize match score (${evaluatedCase!.matchScore}%) into recommended status...`);
         
-        if (evaluatedCase.matchScore >= 78) {
-          recommendedStatus = 'Interview Ready';
-          decisionRationale = `High alignment (${evaluatedCase.matchScore}%): Strong evidence across ${evaluatedCase.matchedSkills.slice(0, 3).join(', ')}. Recommend technical interview.`;
-        } else if (evaluatedCase.matchScore >= 55) {
+        if (evaluatedCase!.adversarialShieldTriggered) {
           recommendedStatus = 'Needs Review';
-          decisionRationale = `Moderate alignment (${evaluatedCase.matchScore}%): Candidate demonstrates relevant experience but has verification gaps in ${evaluatedCase.missingSkills.slice(0, 2).join(', ')}.`;
+          decisionRationale = `⚠️ Security Alert: Candidate resume contained adversarial prompt-injection directives. Quarantined by Security Shield for recruiter review.`;
+        } else if (evaluatedCase!.matchScore >= 78) {
+          recommendedStatus = 'Interview Ready';
+          decisionRationale = `High alignment (${evaluatedCase!.matchScore}%): Strong evidence across ${evaluatedCase!.matchedSkills.slice(0, 3).join(', ')}. Recommend technical interview.`;
+        } else if (evaluatedCase!.matchScore >= 55) {
+          recommendedStatus = 'Needs Review';
+          decisionRationale = `Moderate alignment (${evaluatedCase!.matchScore}%): Candidate demonstrates relevant experience but has verification gaps in ${evaluatedCase!.missingSkills.slice(0, 2).join(', ')}.`;
         } else {
           recommendedStatus = 'Rejected';
-          decisionRationale = `Low alignment (${evaluatedCase.matchScore}%): Candidate qualifications miss core required competencies (${evaluatedCase.missingSkills.slice(0, 3).join(', ')}).`;
+          decisionRationale = `Low alignment (${evaluatedCase!.matchScore}%): Candidate qualifications miss core required competencies (${evaluatedCase!.missingSkills.slice(0, 3).join(', ')}).`;
         }
 
-        evaluatedCase.reviewStatus = recommendedStatus;
+        evaluatedCase!.reviewStatus = recommendedStatus;
 
         this.appendLog(
           'action',
           `Status decision formulated: ${recommendedStatus} (${decisionRationale})`,
           'tool_eval_matrix',
-          { score: evaluatedCase.matchScore },
+          { score: evaluatedCase!.matchScore },
           { recommendedStatus, rationale: decisionRationale }
         );
         return { recommendedStatus, decisionRationale };
@@ -481,7 +508,7 @@ export class AgentLoopRuntime {
         this.appendLog('thought', `Calling tool_draft_communication to draft tailored candidate email for status "${recommendedStatus}"...`);
         
         draftedEmail = GmailSyncService.generateCandidateEmail(
-          evaluatedCase,
+          evaluatedCase!,
           role,
           recommendedStatus
         );
@@ -504,10 +531,10 @@ export class AgentLoopRuntime {
         const stagedRecord: StagedDecision = {
           id: `stage-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           applicationId: app.id,
-          candidate: evaluatedCase,
+          candidate: evaluatedCase!,
           recommendedStatus,
           rationale: decisionRationale,
-          confidenceScore: evaluatedCase.matchScore,
+          confidenceScore: evaluatedCase!.matchScore,
           draftedSubject: draftedEmail.subject,
           draftedBody: draftedEmail.body,
           recipientEmail: draftedEmail.to,
@@ -522,17 +549,30 @@ export class AgentLoopRuntime {
         // Add to staged decisions queue
         this.stagedDecisions.unshift(stagedRecord);
 
-        // Also persist candidate to active database so it is visible in dashboard
-        await DatabaseService.saveCandidate(evaluatedCase);
-        this.onCandidatePersistedCallback?.(evaluatedCase);
+        // Immediate broadcast to subscribers so Action Deck updates synchronously
+        this.notifySubscribers();
 
-        this.appendLog(
-          'human_gate',
-          `Decision Staged for Recruiter Review: ${evaluatedCase.name} [${recommendedStatus} - ${evaluatedCase.matchScore}%]. Human-in-the-loop signoff required before dispatch.`,
-          'tool_stage_human_signoff',
-          { candidate: evaluatedCase.name, status: recommendedStatus },
-          { stagedId: stagedRecord.id }
-        );
+        // Also persist candidate to active database so it is visible in dashboard
+        await DatabaseService.saveCandidate(evaluatedCase!);
+        this.onCandidatePersistedCallback?.(evaluatedCase!);
+
+        if (evaluatedCase!.adversarialShieldTriggered) {
+          this.appendLog(
+            'human_gate',
+            `🛡️ ADVERSARIAL THREAT QUARANTINED: ${evaluatedCase!.name} attempted covert prompt injection. Neutralized and escalated to Human Review Deck.`,
+            'tool_stage_human_signoff',
+            { candidate: evaluatedCase!.name, status: 'Needs Review', threat: evaluatedCase!.securityAuditNote },
+            { stagedId: stagedRecord.id }
+          );
+        } else {
+          this.appendLog(
+            'human_gate',
+            `Decision Staged for Recruiter Review: ${evaluatedCase!.name} [${recommendedStatus} - ${evaluatedCase!.matchScore}%]. Human-in-the-loop signoff required before dispatch.`,
+            'tool_stage_human_signoff',
+            { candidate: evaluatedCase!.name, status: recommendedStatus },
+            { stagedId: stagedRecord.id }
+          );
+        }
 
         return stagedRecord;
       });
@@ -609,28 +649,25 @@ export class AgentLoopRuntime {
       const log = await GmailSyncService.dispatchEmail(candidate, subject, body);
 
       // 2. Status update & pipeline synchronization
-      if (decision.recommendedStatus === 'Rejected') {
-        await DatabaseService.deleteCandidate(candidate.id);
-        this.onCandidateRemovedCallback?.(candidate.id);
-        this.appendLog('observation', `${candidate.name} marked Rejected: removed from active pipeline and rejection email logged (${log.deliveryReceiptId}).`);
-      } else {
-        const updatedCandidate: CandidateCaseFile = {
-          ...candidate,
-          reviewStatus: decision.recommendedStatus,
-          auditTrail: [
-            {
-              id: `at-${Date.now()}`,
-              action: `Status Approved by Recruiter: ${decision.recommendedStatus}`,
-              timestamp: 'Just now',
-              note: `Autonomous decision approved and automated email sent to ${decision.recipientEmail}.`
-            },
-            ...candidate.auditTrail
-          ]
-        };
-        await DatabaseService.saveCandidate(updatedCandidate);
-        this.onCandidatePersistedCallback?.(updatedCandidate);
-        this.appendLog('observation', `${candidate.name} status updated to ${decision.recommendedStatus} in active pipeline.`);
-      }
+      const updatedCandidate: CandidateCaseFile = {
+        ...candidate,
+        reviewStatus: decision.recommendedStatus,
+        auditTrail: [
+          {
+            id: `at-${Date.now()}`,
+            action: `Status Approved by Recruiter: ${decision.recommendedStatus}`,
+            timestamp: 'Just now',
+            note: `Autonomous decision approved and automated email sent to ${decision.recipientEmail}.`
+          },
+          ...candidate.auditTrail
+        ]
+      };
+      await DatabaseService.saveCandidate(updatedCandidate);
+      this.onCandidatePersistedCallback?.(updatedCandidate);
+      this.appendLog(
+        'observation',
+        `${candidate.name} status updated to ${decision.recommendedStatus} in active pipeline and email logged (${log.deliveryReceiptId}).`
+      );
 
       // Mark decision as approved
       decision.status = 'approved';
