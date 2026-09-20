@@ -21,6 +21,7 @@ interface LandingPageProps {
   onStartOnboarding: () => void;
   onGoToDashboard?: () => void;
   onRunInstantDemo?: () => void;
+  onOpenPresentationDeck?: () => void;
   candidateCount?: number;
 }
 
@@ -28,6 +29,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onStartOnboarding,
   onGoToDashboard,
   onRunInstantDemo,
+  onOpenPresentationDeck,
   candidateCount = 0
 }) => {
   return (
@@ -48,6 +50,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
 
         <nav className="flex items-center gap-3 text-xs">
+          {onOpenPresentationDeck && (
+            <button
+              onClick={onOpenPresentationDeck}
+              className="px-3 py-1.5 font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
+              title="View 10-slide Hack Devengers Pitch Deck (PPT)"
+            >
+              <Layers className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Pitch Deck (PPT)</span>
+            </button>
+          )}
           {onRunInstantDemo && (
             <button
               onClick={onRunInstantDemo}

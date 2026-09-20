@@ -23,7 +23,8 @@ import {
   Settings,
   Globe,
   Radio,
-  ShieldAlert
+  ShieldAlert,
+  Layers
 } from 'lucide-react';
 import { AiService } from '../services/aiApi';
 import { AgentLoopRuntime } from '../services/agentLoopRuntime';
@@ -56,6 +57,7 @@ interface CaseBoardDashboardProps {
   isAiEvaluating?: boolean;
   onOpenAgentOps?: () => void;
   onOpenCareerPortal?: () => void;
+  onOpenPresentationDeck?: () => void;
 }
 
 export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
@@ -82,7 +84,8 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
   onReevaluateWithAi,
   isAiEvaluating,
   onOpenAgentOps,
-  onOpenCareerPortal
+  onOpenCareerPortal,
+  onOpenPresentationDeck
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedForCompare, setSelectedForCompare] = useState<string[]>([]);
@@ -434,6 +437,18 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
                       <div className="flex-1 min-w-0">
                         <div className="font-semibold text-slate-800">Public Application Link (/apply)</div>
                         <div className="text-[10px] text-slate-400 truncate">Copy or share link with job applicants</div>
+                      </div>
+                    </button>
+                  )}
+                  {onOpenPresentationDeck && (
+                    <button
+                      onClick={() => { setIsSettingsMenuOpen(false); onOpenPresentationDeck(); }}
+                      className="w-full px-3 py-2 text-left hover:bg-slate-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <Layers className="w-4 h-4 text-indigo-600 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-slate-800">Pitch Deck (PPT Presentation)</div>
+                        <div className="text-[10px] text-slate-400 truncate">10-slide interactive presentation & download</div>
                       </div>
                     </button>
                   )}

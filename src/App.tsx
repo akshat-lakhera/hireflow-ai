@@ -18,6 +18,7 @@ import { GmailSyncModal } from './components/GmailSyncModal';
 import { EmailApprovalModal } from './components/EmailApprovalModal';
 import { AutonomousAgentOpsCenter } from './components/AutonomousAgentOpsCenter';
 import { CareerPortalModal } from './components/CareerPortalModal';
+import { PresentationDeckModal } from './components/PresentationDeckModal';
 import { AgentLoopRuntime } from './services/agentLoopRuntime';
 import { AiService } from './services/aiApi';
 import { DatabaseService } from './services/databaseService';
@@ -62,6 +63,7 @@ export function App() {
   const [isAutonomousScreenerOpen, setIsAutonomousScreenerOpen] = useState(false);
   const [isAgentOpsOpen, setIsAgentOpsOpen] = useState(false);
   const [isCareerPortalOpen, setIsCareerPortalOpen] = useState(false);
+  const [isPresentationDeckOpen, setIsPresentationDeckOpen] = useState(false);
   const [isGmailSyncOpen, setIsGmailSyncOpen] = useState(false);
   const [emailApprovalCandidate, setEmailApprovalCandidate] = useState<CandidateCaseFile | null>(null);
   const [emailApprovalStatus, setEmailApprovalStatus] = useState<CandidateCaseFile['reviewStatus']>('Interview Ready');
@@ -76,6 +78,14 @@ export function App() {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 4000);
   };
+
+  // Check URL parameters for ?deck=true, ?view=deck or #deck
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('deck') === 'true' || params.get('view') === 'deck' || window.location.hash === '#deck' || window.location.hash === '#presentation') {
+      setIsPresentationDeckOpen(true);
+    }
+  }, []);
 
   // Initialize Autonomous AI Recruiter Agent Loop Runtime
   useEffect(() => {
@@ -517,6 +527,7 @@ export function App() {
           onStartOnboarding={handleStartOnboarding}
           onGoToDashboard={() => setView('dashboard')}
           onRunInstantDemo={handleRunInstantDemo}
+          onOpenPresentationDeck={() => setIsPresentationDeckOpen(true)}
           candidateCount={candidates.length}
         />
       )}
@@ -560,6 +571,7 @@ export function App() {
           isAiEvaluating={isAiEvaluating}
           onOpenAgentOps={() => setIsAgentOpsOpen(true)}
           onOpenCareerPortal={() => setIsCareerPortalOpen(true)}
+          onOpenPresentationDeck={() => setIsPresentationDeckOpen(true)}
         />
       )}
 
@@ -782,6 +794,12 @@ export function App() {
         onApplicationSubmitted={(candName) => {
           showToast(`Application received for ${candName}! Autonomous agent notified.`, 'success');
         }}
+      />
+
+      {/* MODAL 12: Official Hack Devengers Pitch Deck (PPT) */}
+      <PresentationDeckModal
+        isOpen={isPresentationDeckOpen}
+        onClose={() => setIsPresentationDeckOpen(false)}
       />
 
       {/* Global Floating Toast Notifications */}
