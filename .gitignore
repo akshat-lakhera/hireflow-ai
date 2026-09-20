@@ -26,3 +26,6 @@ dist-ssr
 
 .vercel
 .env*
+
+# Private demo/recording scripts — never push
+DEMO_SCRIPT.md

@@ -143,7 +143,7 @@ export class PortalIngestionService {
    * This provides an instant way to demonstrate the autonomous agent Perceive-Plan-Act loop!
    */
   public static simulatePortalInflowBatch(_role?: RoleSetup): PortalApplication[] {
-    const mockApplicants: Omit<PortalApplication, 'id' | 'submittedAt' | 'status'>[] = [
+    const seedPortalApplicants: Omit<PortalApplication, 'id' | 'submittedAt' | 'status'>[] = [
       {
         source: 'greenhouse',
         candidateName: 'Liam Zhang',
@@ -308,7 +308,7 @@ B.S. in Computer Systems Engineering — Purdue University (2014 – 2018)`
     ];
 
     const results: PortalApplication[] = [];
-    for (const applicant of mockApplicants) {
+    for (const applicant of seedPortalApplicants) {
       const created = this.submitApplication(applicant);
       results.push(created);
     }

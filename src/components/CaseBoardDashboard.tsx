@@ -581,17 +581,29 @@ export const CaseBoardDashboard: React.FC<CaseBoardDashboardProps> = ({
                       <Users className="w-5 h-5" />
                     </div>
                     <div>
-                      <div className="text-xs font-semibold text-slate-800">No candidates found</div>
+                      <div className="text-xs font-semibold text-slate-800">Pipeline is empty</div>
                       <p className="text-[11px] text-slate-500 mt-1">
-                        Upload a resume PDF to evaluate.
+                        Upload a resume PDF or stream a live demo batch.
                       </p>
                     </div>
-                    <button
-                      onClick={onOpenUpload}
-                      className="px-3 py-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors inline-block"
-                    >
-                      Upload PDF
-                    </button>
+                    <div className="flex flex-col gap-2">
+                      <button
+                        onClick={() => {
+                          PortalIngestionService.simulatePortalInflowBatch(role);
+                          if (onOpenAgentOps) onOpenAgentOps();
+                        }}
+                        className="px-3 py-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg transition-colors inline-flex items-center justify-center gap-1.5"
+                      >
+                        <Zap className="w-3.5 h-3.5 text-emerald-600 fill-emerald-500" />
+                        ⚡ Load Demo Pipeline
+                      </button>
+                      <button
+                        onClick={onOpenUpload}
+                        className="px-3 py-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors inline-block"
+                      >
+                        Upload PDF Resume
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   filteredCandidates.map((c) => (

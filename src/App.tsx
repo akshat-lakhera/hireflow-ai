@@ -23,6 +23,7 @@ import { AgentLoopRuntime } from './services/agentLoopRuntime';
 import { AiService } from './services/aiApi';
 import { DatabaseService } from './services/databaseService';
 import { PortalIngestionService } from './services/portalIngestionService';
+import { CaseEvaluator } from './services/caseEvaluator';
 
 interface ToastNotification {
   id: string;
@@ -281,9 +282,25 @@ export function App() {
     setReviewMode(newReviewMode);
 
     if (uploadedCandidates && uploadedCandidates.length > 0) {
+      // New resumes uploaded — use as-is (already evaluated against newRole in OnboardingWizard)
       setCandidates(uploadedCandidates);
       setSelectedCandidateId(uploadedCandidates[0].id);
       DatabaseService.saveCandidates(uploadedCandidates).catch(e => console.warn('DB save notice:', e));
+    } else {
+      // No new resumes — re-evaluate existing pipeline against the updated role blueprint
+      setCandidates(prev => {
+        if (prev.length === 0) return prev;
+        const reEvaluated = prev.map(c => {
+          try {
+            const rawText = c.rawText || [c.resumeSummary, ...c.experiences.map(e => e.highlights.join(' ')), ...c.projects.map(p => p.description)].join('\n');
+            return CaseEvaluator.evaluate(rawText, newRole, c.name, undefined, undefined);
+          } catch {
+            return c; // Keep original if evaluation fails
+          }
+        }).sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
+        DatabaseService.saveCandidates(reEvaluated).catch(e => console.warn('DB re-eval save notice:', e));
+        return reEvaluated;
+      });
     }
 
     setView('dashboard');
