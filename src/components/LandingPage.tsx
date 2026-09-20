@@ -54,7 +54,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <button
               onClick={onOpenPresentationDeck}
               className="px-3 py-1.5 font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
-              title="View 10-slide Hack Devengers Pitch Deck (PPT)"
+              title="View 10-slide Agentic AI Pitch Deck (PPT)"
             >
               <Layers className="w-3.5 h-3.5 text-indigo-600" />
               <span>Pitch Deck (PPT)</span>

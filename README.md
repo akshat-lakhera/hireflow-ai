@@ -18,7 +18,7 @@
 **TalentDossier** is an autonomous AI recruitment operations system engineered to solve the acute bottlenecks, hidden security risks, and cognitive fatigue plaguing modern technical hiring.
 
 It is **not a chatbot** and does not wait for manual prompts. It operates as a true autonomous **Perceive ➔ Plan ➔ Act ➔ Reflect** agent:
-- **Perceives**: Continuously polls application buffers from public career portals and ATS webhooks (Greenhouse, LinkedIn, Lever, Indeed).
+- **Perceives**: Continuously polls application buffers from candidate ingestion pipelines and ATS webhooks (Greenhouse, LinkedIn, Lever, Indeed).
 - **Plans**: Decomposes candidate screening into a dynamic Directed Acyclic Graph (DAG) with adaptive live tasks.
 - **Acts**: Runs specialized tools for OCR text extraction, grounded evidence cross-referencing, multi-criteria scoring, and tailored status email generation.
 - **Defends**: Actively neutralizes adversarial prompt-injection attacks (`<!-- SYSTEM OVERRIDE -->`) embedded inside PDF resumes.
@@ -56,7 +56,7 @@ It is **not a chatbot** and does not wait for manual prompts. It operates as a t
 │                        AUTONOMOUS AI RECRUITER RUNTIME                                 │
 │                                                                                        │
 │  1. PERCEIVE                                                                           │
-│     Monitors ingestion buffer (Career Portal / LinkedIn / Greenhouse / Indeed)         │
+│     Monitors ingestion buffer (Applicant Ingress / LinkedIn / Greenhouse / Indeed)     │
 │                                  │                                                     │
 │                                  ▼                                                     │
 │  2. PLAN                                                                               │

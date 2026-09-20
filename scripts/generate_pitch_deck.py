@@ -12,16 +12,16 @@ def create_presentation():
     prs.slide_height = Inches(7.5)
     blank_layout = prs.slide_layouts[6]
 
-    # Theme Colors
-    BG_DARK = RGBColor(11, 15, 25)       # #0B0F19 - Deep Twilight Navy
-    CARD_BG = RGBColor(19, 26, 43)       # #131A2B - Elevated Slate Card
-    CARD_BORDER = RGBColor(39, 50, 78)   # #27324E
-    ACCENT_INDIGO = RGBColor(99, 102, 241) # #6366F1 - Electric Indigo
-    ACCENT_EMERALD = RGBColor(16, 185, 129) # #10B981 - Cyber Emerald
-    ACCENT_AMBER = RGBColor(245, 158, 11)   # #F59E0B - Warm Amber
-    TEXT_WHITE = RGBColor(255, 255, 255)
-    TEXT_MUTED = RGBColor(156, 163, 175)
-    TEXT_BODY = RGBColor(203, 213, 225)
+    # Theme Colors - Clean White Executive Deck
+    BG_DARK = RGBColor(248, 250, 252)       # #F8FAFC - Clean Slate Off-White
+    CARD_BG = RGBColor(255, 255, 255)       # #FFFFFF - Pure White
+    CARD_BORDER = RGBColor(226, 232, 240)   # #E2E8F0 - Crisp Border
+    ACCENT_INDIGO = RGBColor(79, 70, 229)   # #4F46E5 - Rich Indigo
+    ACCENT_EMERALD = RGBColor(5, 150, 105)  # #059669 - Forest Emerald
+    ACCENT_AMBER = RGBColor(217, 119, 6)    # #D97706 - Amber
+    TEXT_WHITE = RGBColor(15, 23, 42)       # #0F172A - Deep Charcoal (for titles)
+    TEXT_MUTED = RGBColor(100, 116, 139)    # #64748B - Slate 500
+    TEXT_BODY = RGBColor(51, 65, 85)        # #334155 - Slate 700
 
     base_img_dir = r"C:\Users\Lenovo\.gemini\antigravity-ide\brain\5aab5477-e5fd-4b04-8470-bf7bc93f397f\.tempmediaStorage"
 
@@ -36,8 +36,8 @@ def create_presentation():
         # Category Chip
         chip = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.8), Inches(0.5), Inches(2.8), Inches(0.35))
         chip.fill.solid()
-        chip.fill.fore_color.rgb = RGBColor(30, 27, 75)
-        chip.line.color.rgb = ACCENT_INDIGO
+        chip.fill.fore_color.rgb = RGBColor(238, 242, 255)
+        chip.line.color.rgb = RGBColor(199, 210, 254)
         chip.line.width = Pt(1)
         tf = chip.text_frame
         tf.word_wrap = True
@@ -78,12 +78,12 @@ def create_presentation():
     hero_card.line.width = Pt(1.5)
 
     # Tag Badge
-    badge = s1.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(1.8), Inches(1.5), Inches(3.2), Inches(0.4))
+    badge = s1.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(1.8), Inches(1.5), Inches(3.5), Inches(0.4))
     badge.fill.solid()
-    badge.fill.fore_color.rgb = RGBColor(49, 46, 129)
-    badge.line.color.rgb = ACCENT_INDIGO
+    badge.fill.fore_color.rgb = RGBColor(238, 242, 255)
+    badge.line.color.rgb = RGBColor(199, 210, 254)
     p = badge.text_frame.paragraphs[0]
-    p.text = "HACK DEVENGERS 2026 OFFICIAL PITCH"
+    p.text = "AGENTIC AI HACKATHON 2026 OFFICIAL PITCH"
     p.font.size = Pt(10)
     p.font.bold = True
     p.font.color.rgb = ACCENT_INDIGO
@@ -513,22 +513,22 @@ def create_presentation():
     p.font.color.rgb = ACCENT_EMERALD
 
     p_dep = tf.add_paragraph()
-    p_dep.text = "Live Web App:  https://hack-devengers-hackathon-lyart.vercel.app  (Also: https://agentic-ai-hackathon-seven.vercel.app)"
+    p_dep.text = "Live Web App: https://agentic-ai-hackathon-seven.vercel.app"
     p_dep.font.size = Pt(11.5)
     p_dep.font.bold = True
     p_dep.font.color.rgb = TEXT_WHITE
 
     p_gh = tf.add_paragraph()
-    p_gh.text = "GitHub Repository: https://github.com/akshat-lakhera/hack-devengers-hireflow"
+    p_gh.text = "GitHub Repository: https://github.com/akshat-lakhera/hireflow-ai"
     p_gh.font.size = Pt(11.5)
     p_gh.font.bold = True
     p_gh.font.color.rgb = ACCENT_INDIGO
 
-    # Save to both repo paths and brain artifacts
+    # Save to agentic repo paths and brain artifacts
     out_paths = [
-        r"e:\hack-devengers-hackathon\TalentDossier_HackDevengers_PitchDeck.pptx",
-        r"e:\agentic-ai-hackathon\TalentDossier_HackDevengers_PitchDeck.pptx",
-        r"C:\Users\Lenovo\.gemini\antigravity-ide\brain\5aab5477-e5fd-4b04-8470-bf7bc93f397f\TalentDossier_HackDevengers_PitchDeck.pptx"
+        r"e:\agentic-ai-hackathon\public\TalentDossier_PitchDeck.pptx",
+        r"e:\agentic-ai-hackathon\TalentDossier_PitchDeck.pptx",
+        r"C:\Users\Lenovo\.gemini\antigravity-ide\brain\5aab5477-e5fd-4b04-8470-bf7bc93f397f\TalentDossier_PitchDeck.pptx"
     ]
     for path in out_paths:
         os.makedirs(os.path.dirname(path), exist_ok=True)

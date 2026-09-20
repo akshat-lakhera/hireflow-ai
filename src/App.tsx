@@ -813,7 +813,7 @@ export function App() {
         }}
       />
 
-      {/* MODAL 12: Official Hack Devengers Pitch Deck (PPT) */}
+      {/* MODAL 12: Official Agentic AI Pitch Deck (PPT) */}
       <PresentationDeckModal
         isOpen={isPresentationDeckOpen}
         onClose={() => setIsPresentationDeckOpen(false)}
